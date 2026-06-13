@@ -1,6 +1,7 @@
 "use client";
 
-import { TaskWidget } from "@/components/task-widget";
+import { useEffect, useState } from "react";
+import { TaskPill, TaskWidget } from "@/components/task-widget";
 import type { Task } from "@/lib/tasks";
 
 type TasksViewProps = {
@@ -11,19 +12,34 @@ type TasksViewProps = {
 };
 
 export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate }: TasksViewProps) {
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
 
-  const keyboardTaskId = tasks.find(
-    (task) => (task.proposedActions?.length ?? 0) > (task.actionFlowStep ?? 0),
-  )?.id;
+  useEffect(() => {
+    if (tasks.length === 0) {
+      setSelectedTaskId(null);
+      return;
+    }
+
+    if (!selectedTaskId || !tasks.some((task) => task.id === selectedTaskId)) {
+      const firstActive =
+        tasks.find(
+          (task) => (task.proposedActions?.length ?? 0) > (task.actionFlowStep ?? 0),
+        ) ?? tasks[0];
+      setSelectedTaskId(firstActive.id);
+    }
+  }, [selectedTaskId, tasks]);
+
+  const selectedTask = tasks.find((task) => task.id === selectedTaskId);
 
   return (
-    <div className="flex flex-col gap-3">
-      <h1 className="page-title">{today}</h1>
+    <div className="flex min-h-full flex-col gap-3">
+      <h1 className="page-title shrink-0">{today}</h1>
 
       {allClear && tasks.length === 0 ? (
         <div className="all-clear-card flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
@@ -35,18 +51,29 @@ export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate }: Ta
           <p className="text-[12px] text-zinc-500">Upload a video to extract tasks.</p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-4">
-          {tasks.map((task) => (
-            <li key={task.id}>
+        <div className="flex flex-1 items-center justify-center py-6">
+          <div className="flex w-full max-w-xl flex-col items-center">
+            <div className="relative z-10 -mb-3 flex max-w-full flex-wrap justify-center gap-2 px-2">
+              {tasks.map((task) => (
+                <TaskPill
+                  key={task.id}
+                  task={task}
+                  selected={task.id === selectedTaskId}
+                  onSelect={() => setSelectedTaskId(task.id)}
+                />
+              ))}
+            </div>
+
+            {selectedTask ? (
               <TaskWidget
-                task={task}
+                task={selectedTask}
                 googleConnected={googleConnected}
-                keyboardEnabled={task.id === keyboardTaskId}
+                keyboardEnabled
                 onTaskUpdate={onTaskUpdate}
               />
-            </li>
-          ))}
-        </ul>
+            ) : null}
+          </div>
+        </div>
       )}
     </div>
   );
