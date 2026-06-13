@@ -8,12 +8,13 @@ import { CalendarView } from "@/components/calendar-view";
 import { UploadView } from "@/components/upload-view";
 import { TasksView } from "@/components/tasks-view";
 import { SettingsView } from "@/components/settings-view";
+import { ProfileSettingsView } from "@/components/profile-settings-view";
 import { LoginView } from "@/components/login-view";
 import { ProfileMenu, profileUserFromSession } from "@/components/profile-menu";
 import { type Task } from "@/lib/tasks";
 
 type MainTab = "upload" | "tasks" | "mail" | "calendar";
-type SettingsSection = "integrations";
+type SettingsSection = "integrations" | "profile";
 type Tab = MainTab | "settings";
 
 type SessionUser = {
@@ -82,6 +83,20 @@ function CalendarIcon() {
   );
 }
 
+function ProfileIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M20 21a8 8 0 00-16 0M12 11a4 4 0 100-8 4 4 0 000 8z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function IntegrationsIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -137,7 +152,15 @@ const MAIN_NAV: { id: MainTab; label: string; icon: ReactNode }[] = [
 
 const SETTINGS_NAV: { id: SettingsSection; label: string; icon: ReactNode }[] = [
   { id: "integrations", label: "Integrations", icon: <IntegrationsIcon /> },
+  { id: "profile", label: "Profile", icon: <ProfileIcon /> },
 ];
+
+const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
+
+function readSidebarCollapsed(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+}
 
 export function AppShell() {
   const searchParams = useSearchParams();
@@ -146,7 +169,11 @@ export function AppShell() {
   const [returnTab, setReturnTab] = useState<MainTab>("upload");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allClear, setAllClear] = useState(false);
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(readSidebarCollapsed());
+  }, []);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -158,7 +185,6 @@ export function AppShell() {
     const requestedTab = searchParams.get("tab");
     if (requestedTab === "settings") {
       setTab("settings");
-      setCollapsed(false);
     } else if (
       requestedTab === "tasks" ||
       requestedTab === "upload" ||
@@ -169,8 +195,8 @@ export function AppShell() {
     }
 
     const requestedSettings = searchParams.get("settings");
-    if (requestedSettings === "integrations") {
-      setSettingsSection("integrations");
+    if (requestedSettings === "integrations" || requestedSettings === "profile") {
+      setSettingsSection(requestedSettings);
     }
   }, [searchParams]);
 
@@ -216,9 +242,17 @@ export function AppShell() {
 
   const handleOpenSettings = useCallback(() => {
     setReturnTab(tab === "settings" ? returnTab : tab);
-    setCollapsed(false);
+    setSettingsSection("profile");
     setTab("settings");
   }, [tab, returnTab]);
+
+  const toggleSidebar = useCallback(() => {
+    setCollapsed((current) => {
+      const next = !current;
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      return next;
+    });
+  }, []);
 
   const handleExitSettings = useCallback(() => {
     setTab(returnTab);
@@ -251,7 +285,7 @@ export function AppShell() {
   ).length;
 
   return (
-    <div className="flex h-full min-h-0 gap-2 bg-[var(--shell-bg)] p-2">
+    <div className="flex h-full min-h-0 w-full min-w-0 gap-2 bg-[var(--shell-bg)] p-2">
       <aside
         className={`flex shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_0_0_0.5px_rgba(0,0,0,0.04),0_1px_3px_rgba(0,0,0,0.04)] transition-[width] duration-200 ease-out ${
           collapsed ? "w-[52px]" : "w-44"
@@ -262,53 +296,39 @@ export function AppShell() {
             collapsed ? "px-1.5 py-2" : "px-2 py-2"
           }`}
         >
-          <ProfileMenu
-            collapsed={collapsed}
-            user={profile}
-            onOpenSettings={handleOpenSettings}
-            onSignOut={() => void handleSignOut()}
-          />
-        </div>
-
-        {!collapsed && tab === "settings" ? (
-          <div className="border-b border-zinc-100 p-1.5">
+          {tab === "settings" ? (
             <button
               type="button"
               onClick={handleExitSettings}
-              className="sidebar-nav-item btn-ghost focus-ring w-full gap-2 px-2 py-1.5 text-zinc-600 hover:text-zinc-900"
+              title="Home"
+              aria-label="Home"
+              className={`sidebar-nav-item btn-ghost focus-ring w-full text-zinc-600 hover:text-zinc-900 ${
+                collapsed ? "justify-center p-1.5" : "gap-2 px-2 py-1.5"
+              }`}
             >
               <BackIcon />
-              <span className="text-[12px] font-medium">Back</span>
+              {!collapsed && <span className="text-[12px] font-medium">Home</span>}
             </button>
-          </div>
-        ) : !collapsed ? (
-          <div className="border-b border-zinc-100 px-2.5 py-2">
-            <span className="text-[12px] font-semibold uppercase tracking-wider text-zinc-400">
-              Field
-            </span>
-          </div>
-        ) : null}
+          ) : (
+            <ProfileMenu
+              collapsed={collapsed}
+              user={profile}
+              onOpenSettings={handleOpenSettings}
+              onSignOut={() => void handleSignOut()}
+            />
+          )}
+        </div>
 
         <nav className="flex flex-1 flex-col gap-0.5 p-1.5">
           {tab === "settings" ? (
             <>
-              {collapsed ? (
-                <button
-                  type="button"
-                  onClick={handleExitSettings}
-                  title="Back"
-                  aria-label="Back"
-                  className="sidebar-nav-item btn-ghost focus-ring justify-center p-1.5 text-zinc-600 hover:text-zinc-900"
-                >
-                  <BackIcon />
-                </button>
-              ) : (
+              {!collapsed ? (
                 <div className="px-2 pb-1 pt-0.5">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
                     Settings
                   </span>
                 </div>
-              )}
+              ) : null}
               {SETTINGS_NAV.map((item) => {
                 const active = settingsSection === item.id;
 
@@ -381,7 +401,7 @@ export function AppShell() {
         <div className="border-t border-zinc-100 p-1.5">
           <button
             type="button"
-            onClick={() => setCollapsed((c) => !c)}
+            onClick={toggleSidebar}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             className={`sidebar-nav-item btn-ghost focus-ring w-full ${
@@ -394,7 +414,8 @@ export function AppShell() {
         </div>
       </aside>
 
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-2xl bg-[var(--background)] px-4 py-4 shadow-[0_0_0_0.5px_rgba(0,0,0,0.04),0_1px_3px_rgba(0,0,0,0.04)] md:px-5 md:py-5">
+      <main className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl bg-[var(--background)] shadow-[0_0_0_0.5px_rgba(0,0,0,0.04),0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className="h-full overflow-y-auto overscroll-contain px-4 py-4 md:px-5 md:py-5">
         {tab === "upload" ? (
           <UploadView onAnalysisComplete={handleAnalysisComplete} />
         ) : tab === "tasks" ? (
@@ -413,7 +434,14 @@ export function AppShell() {
             googleConnected={Boolean(googleConnectedParam)}
             googleError={googleErrorParam}
           />
-        ) : null}
+        ) : (
+          <ProfileSettingsView
+            user={profile}
+            email={user.email}
+            onSignOut={() => void handleSignOut()}
+          />
+        )}
+        </div>
       </main>
     </div>
   );

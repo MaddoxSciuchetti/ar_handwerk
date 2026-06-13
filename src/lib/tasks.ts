@@ -41,15 +41,6 @@ export type TaskIntegrations = {
   purchaseSearch?: PurchaseSearchResult;
 };
 
-/** Raw Pioneer extraction attached to a task for debugging. */
-export type TaskPioneerDebug = {
-  extractionSource: "service_task" | "entity_fallback";
-  serviceTask?: unknown;
-  entityMatch?: unknown;
-  entities?: unknown;
-  pioneerResponse?: unknown;
-};
-
 export type Task = {
   id: string;
   title: string;
@@ -57,18 +48,13 @@ export type Task = {
   assignee?: string;
   location?: string;
   deadline?: string;
-  /** Item that must be purchased (from Pioneer material/equipment extraction). */
   itemToBuy?: string;
   material?: string;
   equipment?: string;
   status: TaskStatus;
   createdAt: string;
   integrations?: TaskIntegrations;
-  /** Pioneer extraction snapshot used to build this task (dev/debug). */
-  pioneerDebug?: TaskPioneerDebug;
-  /** Ordered action queue: email, calendar, price, then demo integrations. */
   proposedActions?: ProposedAction[];
-  /** Current index into proposedActions. */
   actionFlowStep?: number;
 };
 
@@ -153,7 +139,7 @@ function nearestEntityText(
   return nearestEntitySpan(anchor, candidates, maxDistance)?.text?.trim();
 }
 
-function parseServiceTaskRows(items: PioneerServiceTask[], pioneerData: PioneerData): Task[] {
+function parseServiceTaskRows(items: PioneerServiceTask[]): Task[] {
   const batchId = Date.now();
 
   return items.flatMap((item, index) => {
@@ -177,19 +163,13 @@ function parseServiceTaskRows(items: PioneerServiceTask[], pioneerData: PioneerD
         itemToBuy,
         status: "pending" as const,
         createdAt: new Date().toISOString(),
-        pioneerDebug: {
-          extractionSource: "service_task" as const,
-          serviceTask: item,
-          entities: pioneerData.entities,
-          pioneerResponse: pioneerData,
-        },
       },
     ];
   });
 }
 
 /** Fallback when Pioneer returns entities but no grouped service_task rows. */
-function parseEntityFallback(entities: PioneerEntities | undefined, pioneerData: PioneerData): Task[] {
+function parseEntityFallback(entities: PioneerEntities | undefined): Task[] {
   const batchId = Date.now();
   const taskSpans = (entities?.task ?? []).filter((span) => span.text?.trim());
   if (taskSpans.length === 0) return [];
@@ -203,30 +183,14 @@ function parseEntityFallback(entities: PioneerEntities | undefined, pioneerData:
     deadline: nearestEntityText(taskSpan, entities?.deadline),
     status: "pending" as const,
     createdAt: new Date().toISOString(),
-    pioneerDebug: {
-      extractionSource: "entity_fallback" as const,
-      entityMatch: {
-        task: taskSpan,
-        problem: nearestEntitySpan(taskSpan, entities?.problem),
-        people: nearestEntitySpan(taskSpan, entities?.people),
-        location: nearestEntitySpan(taskSpan, entities?.location),
-        deadline: nearestEntitySpan(taskSpan, entities?.deadline),
-      },
-      entities,
-      pioneerResponse: pioneerData,
-    },
   }));
 }
 
-/**
- * Turn Pioneer extraction JSON into task widgets.
- * Prefers grouped service_task rows; falls back to flat task entities.
- */
 export function parsePioneerTasks(data: unknown): Task[] {
   const parsed = data as PioneerData;
-  const fromStructures = parseServiceTaskRows(parsed?.service_task ?? [], parsed);
+  const fromStructures = parseServiceTaskRows(parsed?.service_task ?? []);
   if (fromStructures.length > 0) return fromStructures;
-  return parseEntityFallback(parsed?.entities, parsed);
+  return parseEntityFallback(parsed?.entities);
 }
 
 export const SAMPLE_TASKS: Task[] = [

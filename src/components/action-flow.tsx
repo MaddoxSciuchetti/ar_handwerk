@@ -1,272 +1,291 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ActionCardContent } from "@/components/action-cards/action-card-content";
 import type { ProposedAction } from "@/lib/actions/types";
-import { ActionStepProgress } from "@/components/action-step-progress";
-import { CalendarActionCard } from "@/components/action-cards/calendar-action-card";
-import { DemoIntegrationCard } from "@/components/action-cards/demo-integration-card";
-import { EmailActionCard } from "@/components/action-cards/email-action-card";
-import { PriceActionCard } from "@/components/action-cards/price-action-card";
 import type { TaskActionResult } from "@/lib/integrations/types";
 import type { Task } from "@/lib/tasks";
 
 type ActionFlowProps = {
   task: Task;
   googleConnected?: boolean;
+  keyboardEnabled?: boolean;
   onTaskUpdate?: (task: Task) => void;
 };
 
-function allActionsResolved(actions: ProposedAction[], step: number): boolean {
-  return step >= actions.length;
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
-function patchAction(
-  task: Task,
-  actionId: string,
-  patch: Partial<ProposedAction>,
-): ProposedAction[] {
-  return (task.proposedActions ?? []).map((action) =>
-    action.id === actionId ? { ...action, ...patch } : action,
+function patchAction(task: Task, actionId: string, patch: Partial<ProposedAction>) {
+  return (task.proposedActions ?? []).map((a) =>
+    a.id === actionId ? { ...a, ...patch } : a,
   );
 }
 
-export function ActionFlow({ task, googleConnected, onTaskUpdate }: ActionFlowProps) {
+export function ActionFlow({
+  task,
+  googleConnected,
+  keyboardEnabled,
+  onTaskUpdate,
+}: ActionFlowProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [priceAwaitingContinue, setPriceAwaitingContinue] = useState(false);
+  const [priceReady, setPriceReady] = useState(false);
   const [calendarDraft, setCalendarDraft] = useState(
     () => task.proposedActions?.find((a) => a.type === "calendar")?.calendarDraft,
   );
 
   const actions = task.proposedActions ?? [];
   const step = task.actionFlowStep ?? 0;
-  const currentAction = actions[step];
+  const current = actions[step];
+  const behind = actions.slice(step + 1, step + 3);
+  const done = step >= actions.length;
 
   const advance = useCallback(
-    (updatedActions: ProposedAction[]) => {
-      onTaskUpdate?.({
-        ...task,
-        proposedActions: updatedActions,
-        actionFlowStep: step + 1,
-      });
-      setPriceAwaitingContinue(false);
+    (updated: ProposedAction[]) => {
+      onTaskUpdate?.({ ...task, proposedActions: updated, actionFlowStep: step + 1 });
+      setPriceReady(false);
       setError(null);
     },
     [onTaskUpdate, step, task],
   );
 
-  const rejectCurrent = useCallback(() => {
-    if (!currentAction) return;
-    const updated = patchAction(task, currentAction.id, { status: "rejected" });
-    advance(updated);
-  }, [advance, currentAction, task]);
+  const reject = useCallback(() => {
+    if (!current) return;
+    advance(patchAction(task, current.id, { status: "rejected" }));
+  }, [advance, current, task]);
 
-  const completeDemo = useCallback(() => {
-    if (!currentAction) return;
-    const updated = patchAction(task, currentAction.id, { status: "done" });
-    advance(updated);
-  }, [advance, currentAction, task]);
+  const accept = useCallback(async () => {
+    if (!current) return;
 
-  const acceptEmail = useCallback(async () => {
-    if (!currentAction?.emailDraft) return;
+    if (current.type === "price_search" && priceReady) {
+      advance(task.proposedActions ?? []);
+      return;
+    }
+
+    if (current.type === "demo_integration") {
+      advance(patchAction(task, current.id, { status: "done" }));
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    try {
-      const draft = currentAction.emailDraft;
-      const response = await fetch("/api/tasks/actions/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task,
-          to: draft.to,
-          subject: draft.subject,
-          body: draft.body,
-        }),
-      });
-      const data = (await response.json()) as TaskActionResult & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Email failed");
 
-      const updated = patchAction(task, currentAction.id, {
-        status: "done",
-        executionResult: {
-          ...task.integrations,
-          gmailMessageId: data.gmailMessageId,
-        },
-      });
-      onTaskUpdate?.({
-        ...task,
-        integrations: { ...task.integrations, gmailMessageId: data.gmailMessageId },
-        proposedActions: updated,
-        actionFlowStep: step + 1,
-      });
+    try {
+      if (current.type === "email" && current.emailDraft) {
+        const draft = current.emailDraft;
+        const res = await fetch("/api/tasks/actions/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ task, to: draft.to, subject: draft.subject, body: draft.body }),
+        });
+        const data = (await res.json()) as TaskActionResult & { error?: string };
+        if (!res.ok) throw new Error(data.error ?? "Email failed");
+
+        const updated = patchAction(task, current.id, { status: "done" });
+        onTaskUpdate?.({
+          ...task,
+          integrations: { ...task.integrations, gmailMessageId: data.gmailMessageId },
+          proposedActions: updated,
+          actionFlowStep: step + 1,
+        });
+        setError(null);
+        return;
+      }
+
+      if (current.type === "calendar") {
+        const draft = calendarDraft ?? current.calendarDraft;
+        if (!draft) return;
+
+        const res = await fetch("/api/tasks/actions/calendar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            task,
+            summary: draft.summary,
+            location: draft.location,
+            start: draft.start,
+            end: draft.end,
+            description: draft.description,
+          }),
+        });
+        const data = (await res.json()) as TaskActionResult & { error?: string };
+        if (!res.ok) throw new Error(data.error ?? "Calendar failed");
+
+        const updated = patchAction(task, current.id, { status: "done" });
+        onTaskUpdate?.({
+          ...task,
+          integrations: {
+            ...task.integrations,
+            calendarEventId: data.calendarEventId,
+            calendarLink: data.calendarLink,
+            calendarStart: data.calendarStart ?? draft.start,
+            calendarEnd: data.calendarEnd ?? draft.end,
+            calendarSummary: draft.summary,
+            calendarLocation: draft.location,
+          },
+          proposedActions: updated,
+          actionFlowStep: step + 1,
+        });
+        return;
+      }
+
+      if (current.type === "price_search" && current.priceDraft) {
+        const res = await fetch("/api/tasks/actions/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ task, query: current.priceDraft.query }),
+        });
+        const data = (await res.json()) as TaskActionResult & { error?: string };
+        if (!res.ok) throw new Error(data.error ?? "Search failed");
+        if (!data.purchaseSearch) throw new Error("No results");
+
+        const updated = patchAction(task, current.id, {
+          status: "done",
+          executionResult: { purchaseSearch: data.purchaseSearch },
+        });
+        onTaskUpdate?.({
+          ...task,
+          integrations: { ...task.integrations, purchaseSearch: data.purchaseSearch },
+          proposedActions: updated,
+        });
+        setPriceReady(true);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Email failed");
+      setError(err instanceof Error ? err.message : "Action failed");
     } finally {
       setLoading(false);
     }
-  }, [currentAction, onTaskUpdate, step, task]);
+  }, [
+    advance,
+    calendarDraft,
+    current,
+    onTaskUpdate,
+    priceReady,
+    step,
+    task,
+  ]);
 
-  const acceptCalendar = useCallback(async () => {
-    const draft = calendarDraft ?? currentAction?.calendarDraft;
-    if (!currentAction || !draft) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/tasks/actions/calendar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task,
-          summary: draft.summary,
-          location: draft.location,
-          start: draft.start,
-          end: draft.end,
-          description: draft.description,
-        }),
-      });
-      const data = (await response.json()) as TaskActionResult & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Calendar failed");
+  const needsGoogle =
+    Boolean(current) &&
+    (current.type === "email" || current.type === "calendar") &&
+    !googleConnected;
+  const acceptLabel =
+    current?.type === "price_search" && priceReady
+      ? "Continue"
+      : current?.type === "email"
+        ? "Send"
+        : "Accept";
+  const acceptDisabled = loading || (needsGoogle && !priceReady);
 
-      const updated = patchAction(task, currentAction.id, {
-        status: "done",
-        executionResult: {
-          ...task.integrations,
-          calendarEventId: data.calendarEventId,
-          calendarLink: data.calendarLink,
-          calendarStart: data.calendarStart ?? draft.start,
-          calendarEnd: data.calendarEnd ?? draft.end,
-          calendarSummary: draft.summary,
-          calendarLocation: draft.location,
-        },
-      });
-      onTaskUpdate?.({
-        ...task,
-        integrations: {
-          ...task.integrations,
-          calendarEventId: data.calendarEventId,
-          calendarLink: data.calendarLink,
-          calendarStart: data.calendarStart ?? draft.start,
-          calendarEnd: data.calendarEnd ?? draft.end,
-          calendarSummary: draft.summary,
-          calendarLocation: draft.location,
-        },
-        proposedActions: updated,
-        actionFlowStep: step + 1,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Calendar failed");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (!keyboardEnabled || done || !current) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (isTypingTarget(event.target)) return;
+
+      if (event.key === "Enter") {
+        if (acceptDisabled) return;
+        event.preventDefault();
+        void accept();
+        return;
+      }
+
+      if (event.key === "q" || event.key === "Q") {
+        if (loading) return;
+        event.preventDefault();
+        reject();
+      }
     }
-  }, [calendarDraft, currentAction, onTaskUpdate, step, task]);
 
-  const acceptPrice = useCallback(async () => {
-    if (!currentAction?.priceDraft) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/tasks/actions/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task, query: currentAction.priceDraft.query }),
-      });
-      const data = (await response.json()) as TaskActionResult & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Search failed");
-      if (!data.purchaseSearch) throw new Error("No search results returned");
-
-      const updated = patchAction(task, currentAction.id, {
-        status: "done",
-        executionResult: { purchaseSearch: data.purchaseSearch },
-      });
-      onTaskUpdate?.({
-        ...task,
-        integrations: { ...task.integrations, purchaseSearch: data.purchaseSearch },
-        proposedActions: updated,
-      });
-      setPriceAwaitingContinue(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Search failed");
-    } finally {
-      setLoading(false);
-    }
-  }, [currentAction, onTaskUpdate, task]);
-
-  const continueAfterPrice = useCallback(() => {
-    if (!currentAction) return;
-    advance(task.proposedActions ?? []);
-  }, [advance, currentAction, task.proposedActions]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [accept, acceptDisabled, current, done, keyboardEnabled, loading, reject]);
 
   if (actions.length === 0) {
     return (
-      <div className="border-t border-zinc-100 pt-2">
-        <div className="h-16 animate-pulse rounded-lg bg-zinc-100" />
-        <p className="mt-1.5 text-[11px] text-zinc-400">Planning actions…</p>
+      <div className="flex h-full min-h-48 items-center justify-center">
+        <p className="text-[11px] text-zinc-400">Planning actions…</p>
       </div>
     );
   }
 
-  if (allActionsResolved(actions, step)) {
+  if (done) {
     return (
-      <div className="border-t border-zinc-100 pt-2">
-        <ActionStepProgress actions={actions} currentStep={step} />
-        <p className="mt-2 rounded-md bg-emerald-50 px-2.5 py-2 text-[11px] font-medium text-emerald-700">
-          All actions complete
-        </p>
+      <div className="flex h-full min-h-48 items-center justify-center rounded-xl bg-emerald-50">
+        <p className="text-[12px] font-medium text-emerald-700">All actions complete</p>
       </div>
     );
   }
 
-  if (!currentAction) return null;
+  if (!current) return null;
 
   return (
-    <div className="flex flex-col gap-2 border-t border-zinc-100 pt-2">
-      <ActionStepProgress actions={actions} currentStep={step} />
+    <div className="flex h-full flex-col gap-4">
+      <div className="relative min-h-56 flex-1 pt-2">
+        {behind.map((action, i) => (
+          <div
+            key={action.id}
+            className="absolute inset-x-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm"
+            style={{
+              top: `${(behind.length - i) * 10}px`,
+              transform: `scale(${1 - (behind.length - i) * 0.04})`,
+              zIndex: i,
+              opacity: 0.45 + i * 0.15,
+            }}
+          >
+            <p className="truncate text-[11px] font-medium text-zinc-500">{action.title}</p>
+          </div>
+        ))}
 
-      {currentAction.type === "email" ? (
-        <EmailActionCard
-          action={currentAction}
-          googleConnected={googleConnected}
-          loading={loading}
-          onAccept={() => void acceptEmail()}
-          onReject={rejectCurrent}
-        />
-      ) : null}
-
-      {currentAction.type === "calendar" ? (
-        <CalendarActionCard
-          action={{
-            ...currentAction,
-            calendarDraft: calendarDraft ?? currentAction.calendarDraft,
-          }}
-          googleConnected={googleConnected}
-          loading={loading}
-          onAccept={() => void acceptCalendar()}
-          onReject={rejectCurrent}
-          onDraftChange={setCalendarDraft}
-        />
-      ) : null}
-
-      {currentAction.type === "price_search" ? (
-        <PriceActionCard
-          action={currentAction}
-          loading={loading}
-          onAccept={() => void acceptPrice()}
-          onReject={rejectCurrent}
-          showContinue={priceAwaitingContinue}
-          onContinue={continueAfterPrice}
-        />
-      ) : null}
-
-      {currentAction.type === "demo_integration" ? (
-        <DemoIntegrationCard
-          action={currentAction}
-          loading={loading}
-          onAccept={completeDemo}
-          onReject={rejectCurrent}
-        />
-      ) : null}
+        <div className="relative z-10 rounded-xl border border-zinc-200 bg-white p-4 shadow-md">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            {step + 1} of {actions.length}
+          </p>
+          <h4 className="mb-3 text-[13px] font-semibold text-zinc-900">{current.title}</h4>
+          {current.reasoning ? (
+            <p className="mb-3 text-[11px] text-zinc-500">{current.reasoning}</p>
+          ) : null}
+          <ActionCardContent
+            action={current}
+            googleConnected={googleConnected}
+            calendarDraft={calendarDraft ?? current.calendarDraft}
+            onCalendarDraftChange={setCalendarDraft}
+          />
+        </div>
+      </div>
 
       {error ? <p className="text-[11px] text-red-600">{error}</p> : null}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={reject}
+          disabled={loading}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+        >
+          Reject
+          <kbd className="rounded border border-white/25 bg-white/15 px-1.5 py-0.5 text-[10px] font-normal leading-none">
+            Q
+          </kbd>
+        </button>
+        <button
+          type="button"
+          onClick={() => void accept()}
+          disabled={acceptDisabled}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+        >
+          {loading ? "Working…" : acceptLabel}
+          {!loading ? (
+            <kbd className="rounded border border-white/25 bg-white/15 px-1.5 py-0.5 text-[10px] font-normal leading-none">
+              Enter
+            </kbd>
+          ) : null}
+        </button>
+      </div>
     </div>
   );
 }

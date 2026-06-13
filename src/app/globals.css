@@ -400,6 +400,7 @@ body {
   background: #ffffff;
   border-radius: var(--ui-card-radius);
   padding: var(--ui-card-pad);
+  overflow: hidden;
   box-shadow:
     0 0 0 0.5px rgba(0, 0, 0, 0.04),
     0 1px 4px rgba(0, 0, 0, 0.04),
