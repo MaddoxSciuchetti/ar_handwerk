@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Progress } from "@base-ui-components/react/progress";
 import { parsePioneerTasks } from "@/lib/tasks";
 import type { Task } from "@/lib/tasks";
 
@@ -35,6 +34,17 @@ export function UploadView({
     transcribeStatus === "active" ||
     pioneerStatus === "active" ||
     planStatus === "active";
+
+  const hasError =
+    transcribeStatus === "error" || pioneerStatus === "error" || planStatus === "error";
+
+  const videoStatus: "loading" | "done" | "error" | "ready" = running
+    ? "loading"
+    : done
+      ? "done"
+      : hasError
+        ? "error"
+        : "ready";
 
   useEffect(() => {
     if (!file) {
@@ -168,16 +178,6 @@ export function UploadView({
     [pickFile],
   );
 
-  const showProgressFooter =
-    transcribeStatus !== "idle" ||
-    pioneerStatus !== "idle" ||
-    planStatus !== "idle" ||
-    Boolean(error) ||
-    done ||
-    Boolean(transcriptSource) ||
-    Boolean(transcriptionPrompt) ||
-    Boolean(transcriptPreview);
-
   return (
     <div className="flex min-h-[calc(100vh-3rem)] flex-col">
       <h1 className="page-title shrink-0">Hallo {userName}</h1>
@@ -258,13 +258,18 @@ export function UploadView({
                         <p className="truncate text-[13px] font-medium text-zinc-900">{file.name}</p>
                         <p className="body-sm text-zinc-400">
                           {(file.size / 1024 / 1024).toFixed(1)} MB
-                          {running ? " · analyzing…" : " · tap to play"}
+                          {videoStatus === "ready" ? " · tap to play" : null}
+                          {videoStatus === "done" && tasksCreated > 0
+                            ? ` · ${tasksCreated} ${tasksCreated === 1 ? "task" : "tasks"}`
+                            : null}
+                          {videoStatus === "done" && tasksCreated === 0 ? " · all clear" : null}
                         </p>
                       </div>
-                      <ExpandIcon className="shrink-0 text-zinc-400 group-hover:text-zinc-600" />
+                      <VideoStatusIcon status={videoStatus} />
                     </button>
                   </li>
                 </ul>
+                {error ? <p className="callout callout-error">{error}</p> : null}
                 {!running ? (
                   <button
                     type="button"
@@ -286,59 +291,6 @@ export function UploadView({
           fileName={file.name}
           onClose={() => setVideoFullscreenOpen(false)}
         />
-      ) : null}
-
-      {showProgressFooter ? (
-        <div className="mx-auto w-full max-w-md shrink-0 flex flex-col gap-3 pb-2">
-          {(transcribeStatus !== "idle" || pioneerStatus !== "idle" || planStatus !== "idle") && (
-            <ul className="flex flex-col gap-1.5">
-              <StatusRow label="Transcribing" status={transcribeStatus} />
-              <StatusRow label="Extracting tasks" status={pioneerStatus} />
-              <StatusRow label="Planning actions" status={planStatus} />
-            </ul>
-          )}
-
-          {transcriptSource && transcribeStatus === "done" ? (
-            <p className="text-center body-sm text-zinc-400">
-              Transcribed via {transcriptSource}
-              {transcriptSource === "stub" ? " (add GEMINI_API_KEY to .env.local)" : ""}
-            </p>
-          ) : null}
-
-          {transcribeStatus === "done" && transcriptionPrompt ? (
-            <details className="widget-card">
-              <summary className="cursor-pointer text-[11px] font-medium text-zinc-600">
-                Gemini transcription prompt (debug)
-              </summary>
-              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-zinc-950 p-2.5 text-[10px] leading-relaxed text-emerald-300">
-                {transcriptionPrompt}
-              </pre>
-            </details>
-          ) : null}
-
-          {transcribeStatus === "done" && transcriptPreview ? (
-            <details className="widget-card">
-              <summary className="cursor-pointer text-[11px] font-medium text-zinc-600">
-                Transcript output (debug)
-              </summary>
-              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-zinc-950 p-2.5 text-[10px] leading-relaxed text-zinc-300">
-                {transcriptPreview}
-              </pre>
-            </details>
-          ) : null}
-
-          {error ? <p className="callout callout-error">{error}</p> : null}
-
-          {done && tasksCreated > 0 ? (
-            <p className="text-center body-sm font-medium text-emerald-600">
-              Created {tasksCreated} {tasksCreated === 1 ? "task" : "tasks"} — open Tasks tab
-            </p>
-          ) : done && tasksCreated === 0 ? (
-            <p className="text-center body-sm font-medium text-emerald-600">
-              All clear — nothing to do today
-            </p>
-          ) : null}
-        </div>
       ) : null}
     </div>
   );
@@ -417,6 +369,82 @@ function CloseIcon() {
   );
 }
 
+function VideoStatusIcon({ status }: { status: "loading" | "done" | "error" | "ready" }) {
+  if (status === "loading") {
+    return (
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-label="Analyzing">
+        <SpinnerIcon />
+      </span>
+    );
+  }
+
+  if (status === "done") {
+    return (
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-emerald-600" aria-label="Complete">
+        <CheckIcon />
+      </span>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-red-500" aria-label="Failed">
+        <ErrorIcon />
+      </span>
+    );
+  }
+
+  return <ExpandIcon className="shrink-0 text-zinc-400 group-hover:text-zinc-600" />;
+}
+
+function SpinnerIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className="animate-spin text-zinc-400"
+    >
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+      <path
+        d="M12 2a10 10 0 0110 10"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M20 6L9 17l-5-5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ErrorIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M18 6L6 18M6 6l12 12"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function VideoFullscreenOverlay({
   url,
   fileName,
@@ -454,26 +482,5 @@ function VideoFullscreenOverlay({
         />
       </div>
     </div>
-  );
-}
-
-function StatusRow({ label, status }: { label: string; status: StageStatus }) {
-  return (
-    <li className="flex items-center justify-between rounded-md bg-white/70 px-2.5 py-1.5 body-sm">
-      <span className="text-zinc-600">{label}</span>
-      {status === "active" ? (
-        <Progress.Root value={null} className="w-14">
-          <Progress.Track className="block h-1 overflow-hidden rounded-full bg-zinc-200">
-            <Progress.Indicator className="block h-full w-full animate-pulse rounded-full bg-zinc-900" />
-          </Progress.Track>
-        </Progress.Root>
-      ) : status === "done" ? (
-        <span className="font-medium text-emerald-600">Done</span>
-      ) : status === "error" ? (
-        <span className="text-red-500">Failed</span>
-      ) : (
-        <span className="text-zinc-300">—</span>
-      )}
-    </li>
   );
 }
