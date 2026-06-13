@@ -28,9 +28,52 @@ function capitalizeSentence(text: string): string {
 
 /** Normalize raw Pioneer entity strings (brands, spacing, casing). */
 export function normalizeEntityText(value?: string): string | undefined {
-  const trimmed = value?.trim();
+  const trimmed = stripTranscriptMarkup(value)?.trim();
   if (!trimmed) return undefined;
+  if (isGenericSpeakerLabel(trimmed)) return undefined;
   return capitalizeSentence(fixBrandSpellings(trimmed));
+}
+
+const TIMESTAMP_PATTERN = /\[\d{1,2}:\d{2}(?::\d{2})?\]/g;
+const SPEAKER_PREFIX_PATTERN =
+  /^(Handwerker|Kunde|Kollege|Hausmeister|Mieter)\s*:\s*/i;
+
+const JUNK_TASK_PATTERN =
+  /^(ja|jaa|nein|mhm|okay|ok|ach|moment|stimmt|genau|hallo|tschüss|danke)\.?$/i;
+
+/** Remove timestamps and speaker labels that confuse entity extraction. */
+export function stripTranscriptMarkup(value?: string): string | undefined {
+  if (!value) return undefined;
+  return value
+    .replace(TIMESTAMP_PATTERN, "")
+    .replace(SPEAKER_PREFIX_PATTERN, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function isGenericSpeakerLabel(value: string): boolean {
+  return /^(handwerker|kunde|kollege|hausmeister|mieter)$/i.test(value.trim());
+}
+
+/** True for transcript fragments that should not become standalone tasks. */
+export function isLowQualityTaskTitle(title: string): boolean {
+  const stripped = stripTranscriptMarkup(title)?.replace(/\.$/, "").trim() ?? "";
+  if (stripped.length < 4) return true;
+  return JUNK_TASK_PATTERN.test(stripped);
+}
+
+/** Clean transcript before Pioneer extraction. */
+export function prepareTranscriptForPioneer(transcript: string): string {
+  return transcript
+    .split("\n")
+    .map((line) => stripTranscriptMarkup(line) ?? "")
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+export function isVerbFragment(text: string): boolean {
+  return VERB_FRAGMENT.test(text.trim());
 }
 
 function reorderVerbPhrase(text: string): string {
@@ -46,14 +89,10 @@ function reorderVerbPhrase(text: string): string {
   return `${object} ${verb}`;
 }
 
-export function isVerbFragment(text: string): boolean {
-  return VERB_FRAGMENT.test(text.trim());
-}
-
 /** Turn raw transcript fragments into a readable task title. */
 export function normalizeTaskTitle(raw: string, proposedAction?: string): string {
-  const taskText = raw.trim();
-  const actionText = proposedAction?.trim();
+  const taskText = stripTranscriptMarkup(raw) ?? raw.trim();
+  const actionText = stripTranscriptMarkup(proposedAction);
 
   let title = taskText;
   if (!title && actionText) {

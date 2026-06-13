@@ -58,3 +58,26 @@ VALUES
     '2025-06-11T09:00:00Z'
   )
 ON CONFLICT (r2_key) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  problem TEXT,
+  assignee TEXT,
+  location TEXT,
+  deadline TEXT,
+  item_to_buy TEXT,
+  material TEXT,
+  equipment TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'done')),
+  proposed_actions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  action_flow_step INTEGER NOT NULL DEFAULT 0,
+  integrations JSONB NOT NULL DEFAULT '{}'::jsonb,
+  source_transcript TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS tasks_user_id_created_at_idx
+  ON tasks (user_id, created_at DESC);

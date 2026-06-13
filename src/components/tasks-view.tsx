@@ -9,9 +9,10 @@ type TasksViewProps = {
   allClear?: boolean;
   googleConnected?: boolean;
   onTaskUpdate?: (task: Task) => void;
+  onTaskDelete?: (taskId: string) => void;
 };
 
-export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate }: TasksViewProps) {
+export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate, onTaskDelete }: TasksViewProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const today = new Date().toLocaleDateString("en-US", {
@@ -39,7 +40,7 @@ export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate }: Ta
 
   return (
     <div className="flex min-h-full flex-col gap-3">
-      <h1 className="page-title shrink-0">{today}</h1>
+      <h1 className="page-title-hero shrink-0">{today}</h1>
 
       {allClear && tasks.length === 0 ? (
         <div className="all-clear-card flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
@@ -52,7 +53,7 @@ export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate }: Ta
         </div>
       ) : (
         <div className="flex flex-1 items-center justify-center py-6">
-          <div className="flex w-full max-w-2xl flex-col items-center">
+          <div className="flex w-full max-w-2xl flex-col items-stretch">
             <div className="relative z-10 -mb-3 flex max-w-full flex-wrap justify-center gap-2 px-2">
               {tasks.map((task, index) => (
                 <TaskPill
@@ -72,6 +73,7 @@ export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate }: Ta
                 googleConnected={googleConnected}
                 keyboardEnabled
                 onTaskUpdate={onTaskUpdate}
+                onTaskDelete={onTaskDelete}
               />
             ) : null}
           </div>

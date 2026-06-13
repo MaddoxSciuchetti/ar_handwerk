@@ -6,6 +6,7 @@ import {
   Calendar,
   MapPin,
   ShoppingCart,
+  Trash2,
   User,
   Wrench,
 } from "lucide-react";
@@ -49,6 +50,7 @@ type TaskWidgetProps = {
   googleConnected?: boolean;
   keyboardEnabled?: boolean;
   onTaskUpdate?: (task: Task) => void;
+  onTaskDelete?: (taskId: string) => void;
 };
 
 export function TaskWidget({
@@ -57,28 +59,40 @@ export function TaskWidget({
   googleConnected,
   keyboardEnabled,
   onTaskUpdate,
+  onTaskDelete,
 }: TaskWidgetProps) {
   return (
-    <article className="widget-card flex min-h-[28rem] w-full flex-col overflow-hidden">
+    <article className="widget-card flex min-h-[36rem] w-full flex-col overflow-hidden">
       <div className="flex shrink-0 flex-col gap-3 border-b border-zinc-100 px-5 py-4">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-            Task {index}
-          </p>
-          <h2 className="mt-1 text-[15px] font-semibold leading-snug text-zinc-900">{task.title}</h2>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+              Task {index}
+            </p>
+            <h2 className="mt-1 text-[15px] font-semibold leading-snug text-zinc-900">{task.title}</h2>
+          </div>
+          {onTaskDelete ? (
+            <button
+              type="button"
+              onClick={() => onTaskDelete(task.id)}
+              title="Delete task"
+              aria-label="Delete task"
+              className="focus-ring shrink-0 rounded-full p-2 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+            </button>
+          ) : null}
         </div>
         <TaskAttributePills task={task} />
       </div>
 
-      <div className="flex min-h-96 flex-1 items-center justify-center px-5 py-8">
-        <div className="h-full w-full max-w-lg">
-          <ActionFlow
-            task={task}
-            googleConnected={googleConnected}
-            keyboardEnabled={keyboardEnabled}
-            onTaskUpdate={onTaskUpdate}
-          />
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col px-5 pb-5 pt-4">
+        <ActionFlow
+          task={task}
+          googleConnected={googleConnected}
+          keyboardEnabled={keyboardEnabled}
+          onTaskUpdate={onTaskUpdate}
+        />
       </div>
     </article>
   );

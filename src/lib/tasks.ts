@@ -2,6 +2,7 @@ import type { ProposedAction } from "@/lib/actions/types";
 import {
   consolidatePurchaseFields,
   getTaskDisplayAttributes,
+  isLowQualityTaskTitle,
   normalizeEntityText,
   normalizeTaskTitle,
 } from "@/lib/task-normalize";
@@ -250,8 +251,9 @@ function parseEntityFallback(entities: PioneerEntities | undefined): Task[] {
 export function parsePioneerTasks(data: unknown): Task[] {
   const parsed = normalizePioneerPayload(data);
   const fromStructures = parseServiceTaskRows(parsed.service_task ?? []);
-  if (fromStructures.length > 0) return fromStructures;
-  return parseEntityFallback(parsed.entities);
+  const tasks =
+    fromStructures.length > 0 ? fromStructures : parseEntityFallback(parsed.entities);
+  return tasks.filter((task) => !isLowQualityTaskTitle(task.title));
 }
 
 export const SAMPLE_TASKS: Task[] = [

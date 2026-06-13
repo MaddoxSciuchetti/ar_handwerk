@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -116,6 +116,7 @@ export function AppShell() {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [googleConnected, setGoogleConnected] = useState(false);
+  const tasksRevisionRef = useRef(0);
 
   useEffect(() => {
     setCollapsed(readSidebarCollapsed());
@@ -136,6 +137,27 @@ export function AppShell() {
     void loadSession();
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const revisionAtStart = tasksRevisionRef.current;
+
+    async function loadTasks() {
+      try {
+        const response = await fetch("/api/tasks");
+        if (!response.ok) return;
+        const data = (await response.json()) as { tasks?: Task[] };
+        const loaded = data.tasks ?? [];
+        if (tasksRevisionRef.current !== revisionAtStart) return;
+        setTasks(loaded);
+      } catch {
+        // Keep in-memory state if load fails.
+      }
+    }
+
+    void loadTasks();
+  }, [user]);
+
   const refreshGoogleStatus = useCallback(async () => {
     if (!user) return;
     const response = await fetch("/api/integrations/google/status");
@@ -149,16 +171,68 @@ export function AppShell() {
     void refreshGoogleStatus();
   }, [refreshGoogleStatus]);
 
-  const handleAnalysisComplete = useCallback((newTasks: Task[]) => {
-    setTasks((prev) => {
-      const next = newTasks.length > 0 ? [...newTasks, ...prev] : prev;
-      setAllClear(next.length === 0);
-      return next;
-    });
+  const handleAnalysisComplete = useCallback(async (newTasks: Task[], sourceTranscript?: string) => {
+    tasksRevisionRef.current += 1;
+
+    if (newTasks.length === 0) {
+      setAllClear(true);
+      setTasks([]);
+      return;
+    }
+
+    setAllClear(false);
+
+    try {
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: newTasks, sourceTranscript }),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as { tasks?: Task[] };
+        const saved = data.tasks ?? newTasks;
+        setTasks((prev) => [...saved, ...prev]);
+        return;
+      }
+    } catch {
+      // Fall back to in-memory state if persistence fails.
+    }
+
+    setTasks((prev) => [...newTasks, ...prev]);
   }, []);
 
-  const handleTaskUpdate = useCallback((updated: Task) => {
+  const handleTaskUpdate = useCallback(async (updated: Task) => {
     setTasks((prev) => prev.map((task) => (task.id === updated.id ? updated : task)));
+
+    try {
+      const response = await fetch(`/api/tasks/${updated.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as { task?: Task };
+        if (data.task) {
+          setTasks((prev) => prev.map((task) => (task.id === data.task!.id ? data.task! : task)));
+        }
+      }
+    } catch {
+      // Optimistic update remains if save fails.
+    }
+  }, []);
+
+  const handleTaskDelete = useCallback(async (taskId: string) => {
+    tasksRevisionRef.current += 1;
+    setTasks((prev) => prev.filter((task) => task.id !== taskId));
+    setAllClear(false);
+
+    try {
+      await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+    } catch {
+      // Task already removed from UI; reload on next visit will reconcile.
+    }
   }, []);
 
   const handleSignOut = useCallback(async () => {
@@ -198,6 +272,7 @@ export function AppShell() {
         onCollapsedChange={setCollapsed}
         onAnalysisComplete={handleAnalysisComplete}
         onTaskUpdate={handleTaskUpdate}
+        onTaskDelete={handleTaskDelete}
         onSignOut={() => void handleSignOut()}
         onGoogleStatusRefresh={refreshGoogleStatus}
       />
@@ -212,8 +287,9 @@ type AppShellLayoutProps = {
   collapsed: boolean;
   googleConnected: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
-  onAnalysisComplete: (tasks: Task[]) => void;
+  onAnalysisComplete: (tasks: Task[], sourceTranscript?: string) => void | Promise<void>;
   onTaskUpdate: (task: Task) => void;
+  onTaskDelete: (taskId: string) => void;
   onSignOut: () => void;
   onGoogleStatusRefresh: () => void;
 };
@@ -227,6 +303,7 @@ function AppShellLayout({
   onCollapsedChange,
   onAnalysisComplete,
   onTaskUpdate,
+  onTaskDelete,
   onSignOut,
   onGoogleStatusRefresh,
 }: AppShellLayoutProps) {
@@ -293,8 +370,8 @@ function AppShellLayout({
   }, [googleConnectedParam, onGoogleStatusRefresh]);
 
   const handlePipelineComplete = useCallback(
-    (newTasks: Task[]) => {
-      onAnalysisComplete(newTasks);
+    async (newTasks: Task[], sourceTranscript?: string) => {
+      await onAnalysisComplete(newTasks, sourceTranscript);
       navigateToTab("tasks");
     },
     [navigateToTab, onAnalysisComplete],
@@ -506,6 +583,7 @@ function AppShellLayout({
             allClear={allClear}
             googleConnected={googleConnected}
             onTaskUpdate={onTaskUpdate}
+            onTaskDelete={onTaskDelete}
           />
         ) : tab === "mail" ? (
           <GmailView googleConnected={googleConnected} />

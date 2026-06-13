@@ -13,7 +13,7 @@ export function UploadView({
   onAnalysisComplete,
 }: {
   userName: string;
-  onAnalysisComplete: (tasks: Task[]) => void;
+  onAnalysisComplete: (tasks: Task[], sourceTranscript?: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const pipelineRunRef = useRef(0);
@@ -96,7 +96,7 @@ export function UploadView({
 
     const finish = (tasks: Task[]) => {
       if (runId !== pipelineRunRef.current) return;
-      onAnalysisComplete(tasks);
+      onAnalysisComplete(tasks, transcriptText || undefined);
     };
 
     void uploadToR2(videoFile).catch((err) => {
@@ -215,7 +215,7 @@ export function UploadView({
 
   return (
     <div className="flex min-h-[calc(100vh-3rem)] flex-col">
-      <h1 className="page-title shrink-0">Hallo {userName}</h1>
+      <h1 className="page-title-hero shrink-0">Hallo {userName}</h1>
 
       <div className="flex flex-1 flex-col items-center justify-center px-2 py-6">
         <div className="flex w-full max-w-md flex-col items-center">

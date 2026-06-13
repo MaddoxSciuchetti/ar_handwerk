@@ -41,7 +41,7 @@ function formatDuration(seconds: number | null): string {
 export function DeviceView({
   onAnalysisComplete,
 }: {
-  onAnalysisComplete: (tasks: Task[]) => void;
+  onAnalysisComplete: (tasks: Task[], sourceTranscript?: string) => void;
 }) {
   const supportedDevice = SUPPORTED_DEVICES[0];
   const [viewState, setViewState] = useState<ViewState>("loading");
