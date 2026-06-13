@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const error = searchParams.get("error");
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const settingsUrl = `${appUrl}?tab=settings&settings=integrations`;
+  const settingsUrl = `${appUrl}?tab=workspace`;
 
   if (error) {
     return NextResponse.redirect(`${settingsUrl}&google_error=${encodeURIComponent(error)}`);

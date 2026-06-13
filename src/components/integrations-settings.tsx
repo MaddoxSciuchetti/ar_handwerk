@@ -7,6 +7,7 @@ import {
   DEFAULT_INTEGRATION_PREFERENCES,
   INTEGRATIONS,
   INTEGRATION_STORAGE_KEY,
+  type IntegrationCategory,
   type IntegrationConnections,
   type IntegrationDefinition,
   type IntegrationId,
@@ -15,6 +16,7 @@ import {
 import { IntegrationToggle } from "@/components/integration-toggle";
 
 type IntegrationsSettingsProps = {
+  category: IntegrationCategory;
   googleConnected?: boolean;
   googleError?: string | null;
 };
@@ -54,11 +56,12 @@ function isGoogleIntegration(id: IntegrationId) {
 }
 
 export function IntegrationsSettings({
+  category,
   googleConnected,
   googleError,
 }: IntegrationsSettingsProps) {
   const [googleStatus, setGoogleStatus] = useState<GoogleConnectionStatus | null>(null);
-  const [googleLoading, setGoogleLoading] = useState(true);
+  const [googleLoading, setGoogleLoading] = useState(category === "productivity");
   const [disconnecting, setDisconnecting] = useState(false);
   const [banner, setBanner] = useState<string | null>(googleError ?? null);
   const [preferences, setPreferences] = useState<IntegrationPreferences>(
@@ -82,8 +85,10 @@ export function IntegrationsSettings({
   useEffect(() => {
     setPreferences(readPreferences());
     setConnections(readConnections());
-    void loadGoogleStatus();
-  }, [loadGoogleStatus]);
+    if (category === "productivity") {
+      void loadGoogleStatus();
+    }
+  }, [category, loadGoogleStatus]);
 
   useEffect(() => {
     if (googleConnected) {
@@ -156,9 +161,7 @@ export function IntegrationsSettings({
     setConnectingId(null);
   }
 
-  const productivity = INTEGRATIONS.filter((item) => item.category === "productivity");
-  const messaging = INTEGRATIONS.filter((item) => item.category === "messaging");
-  const suppliers = INTEGRATIONS.filter((item) => item.category === "suppliers");
+  const integrations = INTEGRATIONS.filter((item) => item.category === category);
 
   return (
     <div className="flex flex-col gap-3">
@@ -166,65 +169,34 @@ export function IntegrationsSettings({
         <p className="callout callout-neutral">{banner}</p>
       ) : null}
 
-      <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
-        <div className="flex min-w-0 flex-col gap-3">
-          <section className="widget-card min-w-0">
-            <h2 className="section-title">Productivity</h2>
-            <p className="section-desc">
-              Connect Gmail and Calendar to sync email and scheduling with your tasks.
+      <section className="widget-card min-w-0">
+        {category === "productivity" ? (
+          googleLoading ? (
+            <p className="body-sm text-zinc-400">Loading Google status…</p>
+          ) : !googleStatus?.configured ? (
+            <p className="callout callout-warning">
+              Google OAuth is not configured. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and
+              GOOGLE_REDIRECT_URI to your environment.
             </p>
-
-            {googleLoading ? (
-              <p className="mt-2 body-sm text-zinc-400">Loading Google status…</p>
-            ) : !googleStatus?.configured ? (
-              <p className="callout callout-warning mt-2">
-                Google OAuth is not configured. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and
-                GOOGLE_REDIRECT_URI to your environment.
-              </p>
-            ) : (
-              <div className="mt-2 flex flex-col">
-                {googleAccountConnected ? (
-                  <div className="mb-2 flex flex-col gap-1">
-                    <div className="callout callout-success">
-                      Google account connected as {googleStatus?.email ?? "your account"}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleDisconnectGoogle()}
-                      disabled={disconnecting}
-                      className="btn-text self-start disabled:opacity-50"
-                    >
-                      {disconnecting ? "Disconnecting…" : "Disconnect Google account"}
-                    </button>
+          ) : (
+            <div className="flex flex-col">
+              {googleAccountConnected ? (
+                <div className="mb-2 flex flex-col gap-1">
+                  <div className="callout callout-success">
+                    Google account connected as {googleStatus?.email ?? "your account"}
                   </div>
-                ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void handleDisconnectGoogle()}
+                    disabled={disconnecting}
+                    className="btn-text self-start disabled:opacity-50"
+                  >
+                    {disconnecting ? "Disconnecting…" : "Disconnect Google account"}
+                  </button>
+                </div>
+              ) : null}
 
-                {productivity.map((integration, index) => (
-                  <IntegrationRow
-                    key={integration.id}
-                    integration={integration}
-                    enabled={preferences[integration.id]}
-                    connected={isServiceConnected(integration.id)}
-                    showDivider={index > 0}
-                    onToggle={(enabled) => handleToggle(integration.id, enabled)}
-                    onConnect={() => handleConnect(integration.id)}
-                    connecting={connectingId === integration.id}
-                    onDismissConnect={() => setConnectingId(null)}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="widget-card min-w-0">
-            <h2 className="section-title">Suppliers &amp; manufacturers</h2>
-            <p className="section-desc">
-              SHK-Großhändler und Hersteller für die Materialbeschaffung. Verbinden Sie Ihre
-              Lieferanten, um Preise und Kataloge in der Aufgabensuche zu nutzen.
-            </p>
-
-            <div className="mt-2 flex flex-col">
-              {suppliers.map((integration, index) => (
+              {integrations.map((integration, index) => (
                 <IntegrationRow
                   key={integration.id}
                   integration={integration}
@@ -233,28 +205,15 @@ export function IntegrationsSettings({
                   showDivider={index > 0}
                   onToggle={(enabled) => handleToggle(integration.id, enabled)}
                   onConnect={() => handleConnect(integration.id)}
-                  onDisconnect={
-                    isServiceConnected(integration.id)
-                      ? () => handleDisconnectMessaging(integration.id)
-                      : undefined
-                  }
                   connecting={connectingId === integration.id}
                   onDismissConnect={() => setConnectingId(null)}
                 />
               ))}
             </div>
-          </section>
-        </div>
-
-        <section className="widget-card min-w-0">
-          <h2 className="section-title">Messaging</h2>
-          <p className="section-desc">
-            Choose where task updates and reminders are delivered. Sign up for a service before
-            connecting it here.
-          </p>
-
-          <div className="mt-2 flex flex-col">
-            {messaging.map((integration, index) => (
+          )
+        ) : (
+          <div className="flex flex-col">
+            {integrations.map((integration, index) => (
               <IntegrationRow
                 key={integration.id}
                 integration={integration}
@@ -273,8 +232,14 @@ export function IntegrationsSettings({
               />
             ))}
           </div>
-        </section>
-      </div>
+        )}
+
+        {category === "messaging" ? (
+          <p className="mt-2 body-sm text-zinc-500">
+            Sign up for a service before connecting it here.
+          </p>
+        ) : null}
+      </section>
     </div>
   );
 }

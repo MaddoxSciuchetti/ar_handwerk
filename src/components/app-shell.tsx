@@ -13,8 +13,8 @@ import { LoginView } from "@/components/login-view";
 import { ProfileMenu, profileUserFromSession } from "@/components/profile-menu";
 import { type Task } from "@/lib/tasks";
 
-type MainTab = "upload" | "tasks" | "mail" | "calendar";
-type SettingsSection = "integrations" | "profile";
+type MainTab = "upload" | "tasks" | "mail" | "calendar" | "workspace" | "messaging" | "suppliers";
+type SettingsSection = "profile";
 type Tab = MainTab | "settings";
 
 type SessionUser = {
@@ -97,11 +97,39 @@ function ProfileIcon() {
   );
 }
 
-function IntegrationsIcon() {
+function WorkspaceIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
         d="M12 22v-5M9 17h6M8 7V2m8 5V2M5 7h14a2 2 0 012 2v4a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function MessagingIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function SuppliersIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M3 7h13v10H3zM16 10h4l1 3v4h-5V10zM7 19a2 2 0 100-4 2 2 0 000 4zM18 19a2 2 0 100-4 2 2 0 000 4z"
         stroke="currentColor"
         strokeWidth="1.75"
         strokeLinecap="round"
@@ -148,10 +176,12 @@ const MAIN_NAV: { id: MainTab; label: string; icon: ReactNode }[] = [
   { id: "tasks", label: "Tasks", icon: <TasksIcon /> },
   { id: "calendar", label: "Calendar", icon: <CalendarIcon /> },
   { id: "mail", label: "Mail", icon: <MailIcon /> },
+  { id: "workspace", label: "Workspace", icon: <WorkspaceIcon /> },
+  { id: "messaging", label: "Messaging", icon: <MessagingIcon /> },
+  { id: "suppliers", label: "Suppliers", icon: <SuppliersIcon /> },
 ];
 
 const SETTINGS_NAV: { id: SettingsSection; label: string; icon: ReactNode }[] = [
-  { id: "integrations", label: "Integrations", icon: <IntegrationsIcon /> },
   { id: "profile", label: "Profile", icon: <ProfileIcon /> },
 ];
 
@@ -165,7 +195,7 @@ function readSidebarCollapsed(): boolean {
 export function AppShell() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>("upload");
-  const [settingsSection, setSettingsSection] = useState<SettingsSection>("integrations");
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("profile");
   const [returnTab, setReturnTab] = useState<MainTab>("upload");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allClear, setAllClear] = useState(false);
@@ -183,20 +213,35 @@ export function AppShell() {
 
   useEffect(() => {
     const requestedTab = searchParams.get("tab");
+    const requestedSettings = searchParams.get("settings");
+
     if (requestedTab === "settings") {
       setTab("settings");
+      if (requestedSettings === "profile") {
+        setSettingsSection("profile");
+      }
     } else if (
       requestedTab === "tasks" ||
       requestedTab === "upload" ||
       requestedTab === "mail" ||
-      requestedTab === "calendar"
+      requestedTab === "calendar" ||
+      requestedTab === "workspace" ||
+      requestedTab === "messaging" ||
+      requestedTab === "suppliers"
     ) {
       setTab(requestedTab);
+    } else if (requestedSettings === "integrations") {
+      setTab("workspace");
+    } else if (
+      requestedSettings === "workspace" ||
+      requestedSettings === "messaging" ||
+      requestedSettings === "suppliers"
+    ) {
+      setTab(requestedSettings);
     }
 
-    const requestedSettings = searchParams.get("settings");
-    if (requestedSettings === "integrations" || requestedSettings === "profile") {
-      setSettingsSection(requestedSettings);
+    if (requestedSettings === "profile") {
+      setSettingsSection("profile");
     }
   }, [searchParams]);
 
@@ -429,11 +474,16 @@ export function AppShell() {
           <GmailView googleConnected={googleConnected} />
         ) : tab === "calendar" ? (
           <CalendarView tasks={tasks} googleConnected={googleConnected} />
-        ) : settingsSection === "integrations" ? (
+        ) : tab === "workspace" ? (
           <SettingsView
+            section="workspace"
             googleConnected={Boolean(googleConnectedParam)}
             googleError={googleErrorParam}
           />
+        ) : tab === "messaging" ? (
+          <SettingsView section="messaging" />
+        ) : tab === "suppliers" ? (
+          <SettingsView section="suppliers" />
         ) : (
           <ProfileSettingsView
             user={profile}

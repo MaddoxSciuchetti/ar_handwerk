@@ -202,14 +202,14 @@ export function GmailView({ googleConnected }: GmailViewProps) {
         <div className="widget-card flex flex-col gap-2">
           <p className="text-[12px] font-medium text-zinc-700">Connect Google to use Mail</p>
           <p className="body-sm text-zinc-500">
-            Go to Settings and connect your Google account. You will need to reconnect if you
+            Go to Workspace and connect your Google account. You will need to reconnect if you
             connected before inbox access was added.
           </p>
           <a
-            href="/?tab=settings&settings=integrations"
+            href="/?tab=workspace"
             className="btn-primary focus-ring inline-flex self-start"
           >
-            Open Settings
+            Open Workspace
           </a>
         </div>
       </div>
