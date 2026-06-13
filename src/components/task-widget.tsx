@@ -2,23 +2,24 @@
 
 import type { ReactNode } from "react";
 import {
+  AlertTriangle,
   Calendar,
   MapPin,
-  Package,
   ShoppingCart,
   User,
   Wrench,
 } from "lucide-react";
 import { ActionFlow } from "@/components/action-flow";
-import type { Task } from "@/lib/tasks";
+import { getTaskDisplayAttributes, type Task } from "@/lib/tasks";
 
 type TaskPillProps = {
+  index: number;
   task: Task;
   selected: boolean;
   onSelect: () => void;
 };
 
-export function TaskPill({ task, selected, onSelect }: TaskPillProps) {
+export function TaskPill({ index, task, selected, onSelect }: TaskPillProps) {
   const actions = task.proposedActions ?? [];
   const step = task.actionFlowStep ?? 0;
   const complete = actions.length > 0 && step >= actions.length;
@@ -29,7 +30,7 @@ export function TaskPill({ task, selected, onSelect }: TaskPillProps) {
       onClick={onSelect}
       aria-pressed={selected}
       title={task.title}
-      className={`focus-ring max-w-[11rem] truncate rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+      className={`focus-ring rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
         selected
           ? "border-zinc-900 bg-zinc-900 text-white shadow-sm"
           : complete
@@ -37,12 +38,13 @@ export function TaskPill({ task, selected, onSelect }: TaskPillProps) {
             : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
       }`}
     >
-      {task.title}
+      Task {index}
     </button>
   );
 }
 
 type TaskWidgetProps = {
+  index: number;
   task: Task;
   googleConnected?: boolean;
   keyboardEnabled?: boolean;
@@ -50,6 +52,7 @@ type TaskWidgetProps = {
 };
 
 export function TaskWidget({
+  index,
   task,
   googleConnected,
   keyboardEnabled,
@@ -57,7 +60,13 @@ export function TaskWidget({
 }: TaskWidgetProps) {
   return (
     <article className="widget-card flex min-h-[28rem] w-full flex-col overflow-hidden">
-      <div className="flex min-h-12 shrink-0 items-center border-b border-zinc-100 px-5 py-4">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-zinc-100 px-5 py-4">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            Task {index}
+          </p>
+          <h2 className="mt-1 text-[15px] font-semibold leading-snug text-zinc-900">{task.title}</h2>
+        </div>
         <TaskAttributePills task={task} />
       </div>
 
@@ -79,7 +88,7 @@ function TaskAttributePills({ task }: { task: Task }) {
   const attributes = getTaskAttributes(task);
 
   if (attributes.length === 0) {
-    return <div className="min-h-7 w-full" aria-hidden />;
+    return null;
   }
 
   return (
@@ -109,63 +118,31 @@ type TaskAttribute = {
 
 const ATTRIBUTE_ICON = { size: 12, strokeWidth: 1.75, "aria-hidden": true as const };
 
+const ATTRIBUTE_META: Record<
+  string,
+  { icon: ReactNode; tone: string }
+> = {
+  assignee: { icon: <User {...ATTRIBUTE_ICON} />, tone: "text-sky-600" },
+  location: { icon: <MapPin {...ATTRIBUTE_ICON} />, tone: "text-rose-600" },
+  deadline: { icon: <Calendar {...ATTRIBUTE_ICON} />, tone: "text-amber-600" },
+  problem: { icon: <AlertTriangle {...ATTRIBUTE_ICON} />, tone: "text-orange-600" },
+  itemToBuy: { icon: <ShoppingCart {...ATTRIBUTE_ICON} />, tone: "text-emerald-600" },
+  equipment: { icon: <Wrench {...ATTRIBUTE_ICON} />, tone: "text-violet-600" },
+};
+
 function getTaskAttributes(task: Task): TaskAttribute[] {
-  const attributes: TaskAttribute[] = [];
+  return getTaskDisplayAttributes(task).flatMap((attribute) => {
+    const meta = ATTRIBUTE_META[attribute.key];
+    if (!meta) return [];
 
-  if (task.assignee) {
-    attributes.push({
-      key: "assignee",
-      label: "Assignee",
-      value: task.assignee,
-      icon: <User {...ATTRIBUTE_ICON} />,
-      tone: "text-sky-600",
-    });
-  }
-  if (task.location) {
-    attributes.push({
-      key: "location",
-      label: "Location",
-      value: task.location,
-      icon: <MapPin {...ATTRIBUTE_ICON} />,
-      tone: "text-rose-600",
-    });
-  }
-  if (task.deadline) {
-    attributes.push({
-      key: "deadline",
-      label: "Deadline",
-      value: task.deadline,
-      icon: <Calendar {...ATTRIBUTE_ICON} />,
-      tone: "text-amber-600",
-    });
-  }
-  if (task.itemToBuy) {
-    attributes.push({
-      key: "itemToBuy",
-      label: "To buy",
-      value: task.itemToBuy,
-      icon: <ShoppingCart {...ATTRIBUTE_ICON} />,
-      tone: "text-emerald-600",
-    });
-  }
-  if (task.material) {
-    attributes.push({
-      key: "material",
-      label: "Material",
-      value: task.material,
-      icon: <Package {...ATTRIBUTE_ICON} />,
-      tone: "text-orange-600",
-    });
-  }
-  if (task.equipment) {
-    attributes.push({
-      key: "equipment",
-      label: "Equipment",
-      value: task.equipment,
-      icon: <Wrench {...ATTRIBUTE_ICON} />,
-      tone: "text-violet-600",
-    });
-  }
-
-  return attributes;
+    return [
+      {
+        key: attribute.key,
+        label: attribute.label,
+        value: attribute.value,
+        icon: meta.icon,
+        tone: meta.tone,
+      },
+    ];
+  });
 }

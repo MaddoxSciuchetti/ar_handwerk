@@ -1,4 +1,13 @@
 import type { ProposedAction } from "@/lib/actions/types";
+import {
+  consolidatePurchaseFields,
+  getTaskDisplayAttributes,
+  normalizeEntityText,
+  normalizeTaskTitle,
+} from "@/lib/task-normalize";
+
+export type { TaskDisplayAttribute } from "@/lib/task-normalize";
+export { getTaskDisplayAttributes };
 
 export type TaskStatus = "pending" | "in_progress" | "done";
 
@@ -143,24 +152,24 @@ function parseServiceTaskRows(items: PioneerServiceTask[]): Task[] {
   const batchId = Date.now();
 
   return items.flatMap((item, index) => {
-    const title = fieldText(item.task) ?? fieldText(item.proposed_action);
-    if (!title?.trim()) return [];
+    const rawTitle = fieldText(item.task) ?? fieldText(item.proposed_action);
+    if (!rawTitle?.trim()) return [];
 
-    const material = fieldText(item.material);
-    const equipment = fieldText(item.equipment);
-    const itemToBuy = material ?? equipment;
+    const proposedAction = fieldText(item.proposed_action);
+    const purchase = consolidatePurchaseFields(
+      fieldText(item.material),
+      fieldText(item.equipment),
+    );
 
     return [
       {
         id: `pioneer-${batchId}-${index}`,
-        title: title.trim(),
-        problem: fieldText(item.problem),
-        assignee: fieldText(item.people),
-        location: fieldText(item.location),
-        deadline: fieldText(item.deadline),
-        material,
-        equipment,
-        itemToBuy,
+        title: normalizeTaskTitle(rawTitle, proposedAction),
+        problem: normalizeEntityText(fieldText(item.problem)),
+        assignee: normalizeEntityText(fieldText(item.people)),
+        location: normalizeEntityText(fieldText(item.location)),
+        deadline: normalizeEntityText(fieldText(item.deadline)),
+        ...purchase,
         status: "pending" as const,
         createdAt: new Date().toISOString(),
       },
@@ -176,11 +185,11 @@ function parseEntityFallback(entities: PioneerEntities | undefined): Task[] {
 
   return taskSpans.map((taskSpan, index) => ({
     id: `pioneer-entity-${batchId}-${index}`,
-    title: taskSpan.text!.trim(),
-    problem: nearestEntityText(taskSpan, entities?.problem),
-    assignee: nearestEntityText(taskSpan, entities?.people),
-    location: nearestEntityText(taskSpan, entities?.location),
-    deadline: nearestEntityText(taskSpan, entities?.deadline),
+    title: normalizeTaskTitle(taskSpan.text!.trim()),
+    problem: normalizeEntityText(nearestEntityText(taskSpan, entities?.problem)),
+    assignee: normalizeEntityText(nearestEntityText(taskSpan, entities?.people)),
+    location: normalizeEntityText(nearestEntityText(taskSpan, entities?.location)),
+    deadline: normalizeEntityText(nearestEntityText(taskSpan, entities?.deadline)),
     status: "pending" as const,
     createdAt: new Date().toISOString(),
   }));

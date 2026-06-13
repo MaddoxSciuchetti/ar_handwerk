@@ -54,9 +54,10 @@ export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate }: Ta
         <div className="flex flex-1 items-center justify-center py-6">
           <div className="flex w-full max-w-2xl flex-col items-center">
             <div className="relative z-10 -mb-3 flex max-w-full flex-wrap justify-center gap-2 px-2">
-              {tasks.map((task) => (
+              {tasks.map((task, index) => (
                 <TaskPill
                   key={task.id}
+                  index={index + 1}
                   task={task}
                   selected={task.id === selectedTaskId}
                   onSelect={() => setSelectedTaskId(task.id)}
@@ -66,6 +67,7 @@ export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate }: Ta
 
             {selectedTask ? (
               <TaskWidget
+                index={(tasks.findIndex((task) => task.id === selectedTaskId) ?? 0) + 1}
                 task={selectedTask}
                 googleConnected={googleConnected}
                 keyboardEnabled
