@@ -11,9 +11,18 @@ import { SettingsView } from "@/components/settings-view";
 import { ProfileSettingsView } from "@/components/profile-settings-view";
 import { LoginView } from "@/components/login-view";
 import { ProfileMenu, profileUserFromSession } from "@/components/profile-menu";
+import { DeviceView } from "@/components/device-view";
 import { type Task } from "@/lib/tasks";
 
-type MainTab = "upload" | "tasks" | "mail" | "calendar" | "workspace" | "messaging" | "suppliers";
+type MainTab =
+  | "upload"
+  | "device"
+  | "tasks"
+  | "mail"
+  | "calendar"
+  | "workspace"
+  | "messaging"
+  | "suppliers";
 type SettingsSection = "profile";
 type Tab = MainTab | "settings";
 
@@ -22,6 +31,20 @@ type SessionUser = {
   email: string;
   name: string;
 };
+
+function DeviceIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M2 12a4 4 0 014-4h2a4 4 0 014 4 4 4 0 014-4h2a4 4 0 014 4"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+      <path d="M6 12h12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function UploadIcon() {
   return (
@@ -173,6 +196,7 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
 
 const CORE_NAV: { id: MainTab; label: string; icon: ReactNode }[] = [
   { id: "upload", label: "Upload", icon: <UploadIcon /> },
+  { id: "device", label: "Device", icon: <DeviceIcon /> },
   { id: "tasks", label: "Tasks", icon: <TasksIcon /> },
   { id: "calendar", label: "Calendar", icon: <CalendarIcon /> },
   { id: "mail", label: "Mail", icon: <MailIcon /> },
@@ -226,6 +250,7 @@ export function AppShell() {
     } else if (
       requestedTab === "tasks" ||
       requestedTab === "upload" ||
+      requestedTab === "device" ||
       requestedTab === "mail" ||
       requestedTab === "calendar" ||
       requestedTab === "workspace" ||
@@ -502,6 +527,8 @@ export function AppShell() {
         <div className="h-full overflow-y-auto overscroll-contain px-4 py-4 md:px-5 md:py-5">
         {tab === "upload" ? (
           <UploadView userName={user.name} onAnalysisComplete={handleAnalysisComplete} />
+        ) : tab === "device" ? (
+          <DeviceView />
         ) : tab === "tasks" ? (
           <TasksView
             tasks={tasks}
