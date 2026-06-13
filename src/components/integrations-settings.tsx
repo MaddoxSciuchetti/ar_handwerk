@@ -21,6 +21,22 @@ type IntegrationsSettingsProps = {
   googleError?: string | null;
 };
 
+type CustomIntegration = {
+  id: string;
+  name: string;
+  description: string;
+  category: IntegrationCategory;
+  signUpUrl: string;
+  brandColor: string;
+  brandLabel: string;
+};
+
+type DisplayIntegration = IntegrationDefinition | CustomIntegration;
+
+const CUSTOM_INTEGRATIONS_KEY = "field:custom-integrations";
+const CUSTOM_CONNECTIONS_KEY = "field:custom-integration-connections";
+const CUSTOM_PREFERENCES_KEY = "field:custom-integration-preferences";
+
 function readPreferences(): IntegrationPreferences {
   if (typeof window === "undefined") return DEFAULT_INTEGRATION_PREFERENCES;
   try {
@@ -51,8 +67,64 @@ function writeConnections(connections: IntegrationConnections) {
   window.localStorage.setItem(CONNECTED_STORAGE_KEY, JSON.stringify(connections));
 }
 
+function readCustomIntegrations(): CustomIntegration[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_INTEGRATIONS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as CustomIntegration[];
+  } catch {
+    return [];
+  }
+}
+
+function writeCustomIntegrations(integrations: CustomIntegration[]) {
+  window.localStorage.setItem(CUSTOM_INTEGRATIONS_KEY, JSON.stringify(integrations));
+}
+
+function readCustomConnections(): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_CONNECTIONS_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+function writeCustomConnections(connections: Record<string, boolean>) {
+  window.localStorage.setItem(CUSTOM_CONNECTIONS_KEY, JSON.stringify(connections));
+}
+
+function readCustomPreferences(): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_PREFERENCES_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+function writeCustomPreferences(preferences: Record<string, boolean>) {
+  window.localStorage.setItem(CUSTOM_PREFERENCES_KEY, JSON.stringify(preferences));
+}
+
 function isGoogleIntegration(id: IntegrationId) {
   return id === "gmail" || id === "google-calendar";
+}
+
+function isCatalogIntegration(integration: DisplayIntegration): integration is IntegrationDefinition {
+  return !integration.id.startsWith("custom:");
+}
+
+function customBrandLabel(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "+";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase();
 }
 
 export function IntegrationsSettings({
@@ -68,7 +140,19 @@ export function IntegrationsSettings({
     DEFAULT_INTEGRATION_PREFERENCES,
   );
   const [connections, setConnections] = useState<IntegrationConnections>({});
-  const [connectingId, setConnectingId] = useState<IntegrationId | null>(null);
+  const [customIntegrations, setCustomIntegrations] = useState<CustomIntegration[]>([]);
+  const [customConnections, setCustomConnections] = useState<Record<string, boolean>>({});
+  const [customPreferences, setCustomPreferences] = useState<Record<string, boolean>>({});
+  const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newIntegrationName, setNewIntegrationName] = useState("");
+
+  const catalogIntegrations = INTEGRATIONS.filter((item) => item.category === category);
+  const categoryCustomIntegrations = customIntegrations.filter((item) => item.category === category);
+  const allIntegrations: DisplayIntegration[] = [
+    ...catalogIntegrations,
+    ...categoryCustomIntegrations,
+  ];
 
   const loadGoogleStatus = useCallback(async () => {
     setGoogleLoading(true);
@@ -85,6 +169,13 @@ export function IntegrationsSettings({
   useEffect(() => {
     setPreferences(readPreferences());
     setConnections(readConnections());
+    setCustomIntegrations(readCustomIntegrations());
+    setCustomConnections(readCustomConnections());
+    setCustomPreferences(readCustomPreferences());
+    setShowAddForm(false);
+    setNewIntegrationName("");
+    setConnectingId(null);
+
     if (category === "productivity") {
       void loadGoogleStatus();
     }
@@ -99,37 +190,63 @@ export function IntegrationsSettings({
 
   const googleAccountConnected = Boolean(googleStatus?.connected);
 
-  function isServiceConnected(id: IntegrationId) {
-    if (isGoogleIntegration(id)) return googleAccountConnected;
-    return Boolean(connections[id]);
+  function isServiceConnected(integration: DisplayIntegration) {
+    if (isCatalogIntegration(integration)) {
+      if (isGoogleIntegration(integration.id)) return googleAccountConnected;
+      return Boolean(connections[integration.id]);
+    }
+    return Boolean(customConnections[integration.id]);
   }
 
-  function handleToggle(id: IntegrationId, enabled: boolean) {
-    if (!isServiceConnected(id)) {
-      if (enabled) setConnectingId(id);
+  function isIntegrationEnabled(integration: DisplayIntegration) {
+    if (isCatalogIntegration(integration)) return preferences[integration.id];
+    return Boolean(customPreferences[integration.id]);
+  }
+
+  function handleToggle(integration: DisplayIntegration, enabled: boolean) {
+    if (!isServiceConnected(integration)) {
+      if (enabled) setConnectingId(integration.id);
       return;
     }
 
-    const next = { ...preferences, [id]: enabled };
-    setPreferences(next);
-    writePreferences(next);
+    if (isCatalogIntegration(integration)) {
+      const next = { ...preferences, [integration.id]: enabled };
+      setPreferences(next);
+      writePreferences(next);
+      return;
+    }
+
+    const next = { ...customPreferences, [integration.id]: enabled };
+    setCustomPreferences(next);
+    writeCustomPreferences(next);
   }
 
-  function handleConnect(id: IntegrationId) {
-    if (isGoogleIntegration(id)) {
+  function handleConnect(integration: DisplayIntegration) {
+    if (isCatalogIntegration(integration) && isGoogleIntegration(integration.id)) {
       window.location.href = "/api/integrations/google/connect";
       return;
     }
 
-    const next = { ...connections, [id]: true };
-    setConnections(next);
-    writeConnections(next);
-    setConnectingId(null);
+    if (isCatalogIntegration(integration)) {
+      const next = { ...connections, [integration.id]: true };
+      setConnections(next);
+      writeConnections(next);
 
-    const nextPreferences = { ...preferences, [id]: true };
-    setPreferences(nextPreferences);
-    writePreferences(nextPreferences);
-    setBanner(`${INTEGRATIONS.find((item) => item.id === id)?.name ?? "Service"} connected.`);
+      const nextPreferences = { ...preferences, [integration.id]: true };
+      setPreferences(nextPreferences);
+      writePreferences(nextPreferences);
+    } else {
+      const next = { ...customConnections, [integration.id]: true };
+      setCustomConnections(next);
+      writeCustomConnections(next);
+
+      const nextPreferences = { ...customPreferences, [integration.id]: true };
+      setCustomPreferences(nextPreferences);
+      writeCustomPreferences(nextPreferences);
+    }
+
+    setConnectingId(null);
+    setBanner(`${integration.name} connected.`);
   }
 
   async function handleDisconnectGoogle() {
@@ -150,18 +267,67 @@ export function IntegrationsSettings({
     }
   }
 
-  function handleDisconnectMessaging(id: IntegrationId) {
-    const nextConnections = { ...connections, [id]: false };
-    setConnections(nextConnections);
-    writeConnections(nextConnections);
+  function handleDisconnect(integration: DisplayIntegration) {
+    if (isCatalogIntegration(integration)) {
+      const nextConnections = { ...connections, [integration.id]: false };
+      setConnections(nextConnections);
+      writeConnections(nextConnections);
 
-    const nextPreferences = { ...preferences, [id]: false };
-    setPreferences(nextPreferences);
-    writePreferences(nextPreferences);
+      const nextPreferences = { ...preferences, [integration.id]: false };
+      setPreferences(nextPreferences);
+      writePreferences(nextPreferences);
+    } else {
+      const nextConnections = { ...customConnections, [integration.id]: false };
+      setCustomConnections(nextConnections);
+      writeCustomConnections(nextConnections);
+
+      const nextPreferences = { ...customPreferences, [integration.id]: false };
+      setCustomPreferences(nextPreferences);
+      writeCustomPreferences(nextPreferences);
+    }
+
     setConnectingId(null);
   }
 
-  const integrations = INTEGRATIONS.filter((item) => item.category === category);
+  function handleRemoveCustom(integration: CustomIntegration) {
+    const nextCustom = customIntegrations.filter((item) => item.id !== integration.id);
+    setCustomIntegrations(nextCustom);
+    writeCustomIntegrations(nextCustom);
+
+    const nextConnections = { ...customConnections };
+    delete nextConnections[integration.id];
+    setCustomConnections(nextConnections);
+    writeCustomConnections(nextConnections);
+
+    const nextPreferences = { ...customPreferences };
+    delete nextPreferences[integration.id];
+    setCustomPreferences(nextPreferences);
+    writeCustomPreferences(nextPreferences);
+
+    if (connectingId === integration.id) setConnectingId(null);
+  }
+
+  function handleAddCustomIntegration() {
+    const name = newIntegrationName.trim();
+    if (!name) return;
+
+    const integration: CustomIntegration = {
+      id: `custom:${Date.now()}`,
+      name,
+      description: "Custom integration added by your team.",
+      category,
+      signUpUrl: "https://",
+      brandColor: "#71717a",
+      brandLabel: customBrandLabel(name),
+    };
+
+    const nextCustom = [...customIntegrations, integration];
+    setCustomIntegrations(nextCustom);
+    writeCustomIntegrations(nextCustom);
+    setNewIntegrationName("");
+    setShowAddForm(false);
+    setConnectingId(integration.id);
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -196,41 +362,81 @@ export function IntegrationsSettings({
                 </div>
               ) : null}
 
-              {integrations.map((integration, index) => (
+              {allIntegrations.map((integration, index) => (
                 <IntegrationRow
                   key={integration.id}
                   integration={integration}
-                  enabled={preferences[integration.id]}
-                  connected={isServiceConnected(integration.id)}
+                  enabled={isIntegrationEnabled(integration)}
+                  connected={isServiceConnected(integration)}
                   showDivider={index > 0}
-                  onToggle={(enabled) => handleToggle(integration.id, enabled)}
-                  onConnect={() => handleConnect(integration.id)}
+                  onToggle={(enabled) => handleToggle(integration, enabled)}
+                  onConnect={() => handleConnect(integration)}
+                  onDisconnect={
+                    isServiceConnected(integration) &&
+                    (!isCatalogIntegration(integration) || !isGoogleIntegration(integration.id))
+                      ? () => handleDisconnect(integration)
+                      : undefined
+                  }
+                  onRemove={
+                    !isCatalogIntegration(integration)
+                      ? () => handleRemoveCustom(integration)
+                      : undefined
+                  }
                   connecting={connectingId === integration.id}
                   onDismissConnect={() => setConnectingId(null)}
                 />
               ))}
+
+              <AddIntegrationControl
+                showAddForm={showAddForm}
+                newIntegrationName={newIntegrationName}
+                hasIntegrations={allIntegrations.length > 0}
+                onToggleForm={() => setShowAddForm((current) => !current)}
+                onNameChange={setNewIntegrationName}
+                onAdd={handleAddCustomIntegration}
+                onCancel={() => {
+                  setShowAddForm(false);
+                  setNewIntegrationName("");
+                }}
+              />
             </div>
           )
         ) : (
           <div className="flex flex-col">
-            {integrations.map((integration, index) => (
+            {allIntegrations.map((integration, index) => (
               <IntegrationRow
                 key={integration.id}
                 integration={integration}
-                enabled={preferences[integration.id]}
-                connected={isServiceConnected(integration.id)}
+                enabled={isIntegrationEnabled(integration)}
+                connected={isServiceConnected(integration)}
                 showDivider={index > 0}
-                onToggle={(enabled) => handleToggle(integration.id, enabled)}
-                onConnect={() => handleConnect(integration.id)}
+                onToggle={(enabled) => handleToggle(integration, enabled)}
+                onConnect={() => handleConnect(integration)}
                 onDisconnect={
-                  isServiceConnected(integration.id)
-                    ? () => handleDisconnectMessaging(integration.id)
+                  isServiceConnected(integration) ? () => handleDisconnect(integration) : undefined
+                }
+                onRemove={
+                  !isCatalogIntegration(integration)
+                    ? () => handleRemoveCustom(integration)
                     : undefined
                 }
                 connecting={connectingId === integration.id}
                 onDismissConnect={() => setConnectingId(null)}
               />
             ))}
+
+            <AddIntegrationControl
+              showAddForm={showAddForm}
+              newIntegrationName={newIntegrationName}
+              hasIntegrations={allIntegrations.length > 0}
+              onToggleForm={() => setShowAddForm((current) => !current)}
+              onNameChange={setNewIntegrationName}
+              onAdd={handleAddCustomIntegration}
+              onCancel={() => {
+                setShowAddForm(false);
+                setNewIntegrationName("");
+              }}
+            />
           </div>
         )}
 
@@ -244,8 +450,83 @@ export function IntegrationsSettings({
   );
 }
 
+type AddIntegrationControlProps = {
+  showAddForm: boolean;
+  newIntegrationName: string;
+  hasIntegrations: boolean;
+  onToggleForm: () => void;
+  onNameChange: (value: string) => void;
+  onAdd: () => void;
+  onCancel: () => void;
+};
+
+function AddIntegrationControl({
+  showAddForm,
+  newIntegrationName,
+  hasIntegrations,
+  onToggleForm,
+  onNameChange,
+  onAdd,
+  onCancel,
+}: AddIntegrationControlProps) {
+  return (
+    <div className={hasIntegrations ? "mt-2 border-t border-zinc-100 pt-2" : "mt-1"}>
+      {showAddForm ? (
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            value={newIntegrationName}
+            onChange={(event) => onNameChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onAdd();
+              if (event.key === "Escape") onCancel();
+            }}
+            placeholder="Integration name"
+            className="focus-ring min-w-0 flex-1 rounded-md border border-zinc-200 px-2 py-1.5 text-[12px] text-zinc-900 outline-none"
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={onAdd}
+            disabled={!newIntegrationName.trim()}
+            className="btn-primary focus-ring disabled:opacity-50"
+          >
+            Add
+          </button>
+          <button type="button" onClick={onCancel} className="btn-text">
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onToggleForm}
+          title="Add integration"
+          aria-label="Add integration"
+          className="focus-ring flex h-7 w-7 items-center justify-center rounded-md border border-dashed border-zinc-300 text-zinc-500 transition-colors hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-700"
+        >
+          <PlusIcon />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 5v14M5 12h14"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 type IntegrationRowProps = {
-  integration: IntegrationDefinition;
+  integration: DisplayIntegration;
   enabled: boolean;
   connected: boolean;
   showDivider?: boolean;
@@ -254,6 +535,7 @@ type IntegrationRowProps = {
   onToggle: (enabled: boolean) => void;
   onConnect: () => void;
   onDisconnect?: () => void;
+  onRemove?: () => void;
   onDismissConnect: () => void;
 };
 
@@ -267,6 +549,7 @@ function IntegrationRow({
   onToggle,
   onConnect,
   onDisconnect,
+  onRemove,
   onDismissConnect,
 }: IntegrationRowProps) {
   return (
@@ -316,14 +599,16 @@ function IntegrationRow({
                 >
                   Connect {integration.name}
                 </button>
-                <a
-                  href={integration.signUpUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-secondary"
-                >
-                  Sign up
-                </a>
+                {integration.signUpUrl !== "https://" ? (
+                  <a
+                    href={integration.signUpUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary"
+                  >
+                    Sign up
+                  </a>
+                ) : null}
                 <button
                   type="button"
                   onClick={onDismissConnect}
@@ -345,13 +630,19 @@ function IntegrationRow({
               {disconnecting ? "Disconnecting…" : `Disconnect ${integration.name}`}
             </button>
           ) : null}
+
+          {onRemove ? (
+            <button type="button" onClick={onRemove} className="btn-text mt-1 text-zinc-500">
+              Remove
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
-function IntegrationIcon({ integration }: { integration: IntegrationDefinition }) {
+function IntegrationIcon({ integration }: { integration: DisplayIntegration }) {
   return (
     <span
       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[9px] font-bold text-white"

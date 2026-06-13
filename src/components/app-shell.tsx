@@ -171,11 +171,14 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-const MAIN_NAV: { id: MainTab; label: string; icon: ReactNode }[] = [
+const CORE_NAV: { id: MainTab; label: string; icon: ReactNode }[] = [
   { id: "upload", label: "Upload", icon: <UploadIcon /> },
   { id: "tasks", label: "Tasks", icon: <TasksIcon /> },
   { id: "calendar", label: "Calendar", icon: <CalendarIcon /> },
   { id: "mail", label: "Mail", icon: <MailIcon /> },
+];
+
+const INTEGRATIONS_NAV: { id: MainTab; label: string; icon: ReactNode }[] = [
   { id: "workspace", label: "Workspace", icon: <WorkspaceIcon /> },
   { id: "messaging", label: "Messaging", icon: <MessagingIcon /> },
   { id: "suppliers", label: "Suppliers", icon: <SuppliersIcon /> },
@@ -399,7 +402,8 @@ export function AppShell() {
               })}
             </>
           ) : (
-            MAIN_NAV.map((item) => {
+            <>
+              {CORE_NAV.map((item) => {
                 const active = tab === item.id;
                 const badge =
                   item.id === "tasks" && tasks.length > 0
@@ -439,7 +443,42 @@ export function AppShell() {
                     ) : null}
                   </button>
                 );
-              })
+              })}
+
+              {!collapsed ? (
+                <div className="px-2 pb-1 pt-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                    Integrations
+                  </span>
+                </div>
+              ) : (
+                <div className="mx-2 my-1 border-t border-zinc-100" aria-hidden />
+              )}
+
+              {INTEGRATIONS_NAV.map((item) => {
+                const active = tab === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={collapsed ? item.label : undefined}
+                    aria-label={item.label}
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => setTab(item.id)}
+                    className={`sidebar-nav-item btn-ghost focus-ring ${
+                      collapsed ? "justify-center p-1.5" : "gap-2 px-2 py-1.5"
+                    }`}
+                    data-active={active ? "true" : undefined}
+                  >
+                    <span className={active ? "text-zinc-900" : "text-zinc-400"}>
+                      {item.icon}
+                    </span>
+                    {!collapsed && <span>{item.label}</span>}
+                  </button>
+                );
+              })}
+            </>
           )}
         </nav>
 
