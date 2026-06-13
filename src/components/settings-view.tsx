@@ -37,17 +37,12 @@ export function SettingsView({ section, googleConnected, googleError }: Settings
   const meta = SECTION_META[section];
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-3">
-      <div>
-        <h1 className="page-title">{meta.title}</h1>
-        <p className="page-desc">{meta.description}</p>
-      </div>
-
-      <IntegrationsSettings
-        category={meta.category}
-        googleConnected={googleConnected}
-        googleError={googleError}
-      />
-    </div>
+    <IntegrationsSettings
+      title={meta.title}
+      description={meta.description}
+      category={meta.category}
+      googleConnected={googleConnected}
+      googleError={googleError}
+    />
   );
 }

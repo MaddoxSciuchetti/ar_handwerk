@@ -386,7 +386,7 @@ export function AppShell() {
         {tab === "upload" ? (
           <UploadView userName={user.name} onAnalysisComplete={handleAnalysisComplete} />
         ) : tab === "device" ? (
-          <DeviceView />
+          <DeviceView onAnalysisComplete={handleAnalysisComplete} />
         ) : tab === "tasks" ? (
           <TasksView
             tasks={tasks}

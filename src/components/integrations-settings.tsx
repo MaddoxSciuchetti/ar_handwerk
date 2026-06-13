@@ -17,6 +17,8 @@ import {
 import { IntegrationToggle } from "@/components/integration-toggle";
 
 type IntegrationsSettingsProps = {
+  title: string;
+  description: string;
   category: IntegrationCategory;
   googleConnected?: boolean;
   googleError?: string | null;
@@ -129,6 +131,8 @@ function customBrandLabel(name: string) {
 }
 
 export function IntegrationsSettings({
+  title,
+  description,
   category,
   googleConnected,
   googleError,
@@ -330,8 +334,30 @@ export function IntegrationsSettings({
     setConnectingId(integration.id);
   }
 
+  const addControl = (
+    <AddIntegrationControl
+      showAddForm={showAddForm}
+      newIntegrationName={newIntegrationName}
+      onToggleForm={() => setShowAddForm((current) => !current)}
+      onNameChange={setNewIntegrationName}
+      onAdd={handleAddCustomIntegration}
+      onCancel={() => {
+        setShowAddForm(false);
+        setNewIntegrationName("");
+      }}
+    />
+  );
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex w-full max-w-3xl flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="page-title">{title}</h1>
+          <p className="page-desc">{description}</p>
+        </div>
+        <div className="shrink-0">{addControl}</div>
+      </div>
+
       {banner ? (
         <p className="callout callout-neutral">{banner}</p>
       ) : null}
@@ -387,19 +413,6 @@ export function IntegrationsSettings({
                   onDismissConnect={() => setConnectingId(null)}
                 />
               ))}
-
-              <AddIntegrationControl
-                showAddForm={showAddForm}
-                newIntegrationName={newIntegrationName}
-                hasIntegrations={allIntegrations.length > 0}
-                onToggleForm={() => setShowAddForm((current) => !current)}
-                onNameChange={setNewIntegrationName}
-                onAdd={handleAddCustomIntegration}
-                onCancel={() => {
-                  setShowAddForm(false);
-                  setNewIntegrationName("");
-                }}
-              />
             </div>
           )
         ) : (
@@ -425,19 +438,6 @@ export function IntegrationsSettings({
                 onDismissConnect={() => setConnectingId(null)}
               />
             ))}
-
-            <AddIntegrationControl
-              showAddForm={showAddForm}
-              newIntegrationName={newIntegrationName}
-              hasIntegrations={allIntegrations.length > 0}
-              onToggleForm={() => setShowAddForm((current) => !current)}
-              onNameChange={setNewIntegrationName}
-              onAdd={handleAddCustomIntegration}
-              onCancel={() => {
-                setShowAddForm(false);
-                setNewIntegrationName("");
-              }}
-            />
           </div>
         )}
 
@@ -454,7 +454,6 @@ export function IntegrationsSettings({
 type AddIntegrationControlProps = {
   showAddForm: boolean;
   newIntegrationName: string;
-  hasIntegrations: boolean;
   onToggleForm: () => void;
   onNameChange: (value: string) => void;
   onAdd: () => void;
@@ -464,28 +463,27 @@ type AddIntegrationControlProps = {
 function AddIntegrationControl({
   showAddForm,
   newIntegrationName,
-  hasIntegrations,
   onToggleForm,
   onNameChange,
   onAdd,
   onCancel,
 }: AddIntegrationControlProps) {
-  return (
-    <div className={hasIntegrations ? "mt-2 border-t border-zinc-100 pt-2" : "mt-1"}>
-      {showAddForm ? (
+  if (showAddForm) {
+    return (
+      <div className="flex w-52 flex-col items-end gap-1.5">
+        <input
+          type="text"
+          value={newIntegrationName}
+          onChange={(event) => onNameChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onAdd();
+            if (event.key === "Escape") onCancel();
+          }}
+          placeholder="Integration name"
+          className="focus-ring w-full rounded-md border border-zinc-200 px-2 py-1.5 text-[12px] text-zinc-900 outline-none"
+          autoFocus
+        />
         <div className="flex items-center gap-1.5">
-          <input
-            type="text"
-            value={newIntegrationName}
-            onChange={(event) => onNameChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") onAdd();
-              if (event.key === "Escape") onCancel();
-            }}
-            placeholder="Integration name"
-            className="focus-ring min-w-0 flex-1 rounded-md border border-zinc-200 px-2 py-1.5 text-[12px] text-zinc-900 outline-none"
-            autoFocus
-          />
           <button
             type="button"
             onClick={onAdd}
@@ -498,18 +496,20 @@ function AddIntegrationControl({
             Cancel
           </button>
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={onToggleForm}
-          title="Add integration"
-          aria-label="Add integration"
-          className="focus-ring flex h-7 w-7 items-center justify-center rounded-md border border-dashed border-zinc-300 text-zinc-500 transition-colors hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-700"
-        >
-          <Plus size={12} strokeWidth={2} aria-hidden />
-        </button>
-      )}
-    </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onToggleForm}
+      title="Add integration"
+      aria-label="Add integration"
+      className="focus-ring flex h-7 w-7 items-center justify-center rounded-md border border-dashed border-zinc-300 text-zinc-500 transition-colors hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-700"
+    >
+      <Plus size={12} strokeWidth={2} aria-hidden />
+    </button>
   );
 }
 

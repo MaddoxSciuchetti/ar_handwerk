@@ -107,6 +107,33 @@ export async function getPresignedR2Url(key: string): Promise<string> {
   });
 }
 
+function mimeTypeForKey(key: string): string {
+  const lower = key.toLowerCase();
+  if (lower.endsWith(".mov")) return "video/quicktime";
+  if (lower.endsWith(".webm")) return "video/webm";
+  if (lower.endsWith(".m4v")) return "video/x-m4v";
+  return "video/mp4";
+}
+
+export async function fetchR2VideoFile(key: string): Promise<File> {
+  const { bucketName } = getR2Config();
+  const response = await getR2Client().send(
+    new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    })
+  );
+
+  if (!response.Body) {
+    throw new Error(`Video not found in storage: ${key}`);
+  }
+
+  const bytes = await response.Body.transformToByteArray();
+  const filename = key.split("/").pop() ?? "video.mp4";
+  const buffer = Buffer.from(bytes);
+  return new File([buffer], filename, { type: mimeTypeForKey(key) });
+}
+
 export function isR2Configured(): boolean {
   return Boolean(
     process.env.R2_ACCOUNT_ID &&
@@ -114,14 +141,6 @@ export function isR2Configured(): boolean {
       process.env.R2_SECRET_ACCESS_KEY &&
       process.env.R2_BUCKET_NAME
   );
-}
-
-function mimeTypeForKey(key: string): string {
-  const lower = key.toLowerCase();
-  if (lower.endsWith(".mov")) return "video/quicktime";
-  if (lower.endsWith(".webm")) return "video/webm";
-  if (lower.endsWith(".m4v")) return "video/x-m4v";
-  return "video/mp4";
 }
 
 function sanitizeFilename(filename: string): string {

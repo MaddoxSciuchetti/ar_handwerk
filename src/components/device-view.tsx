@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Glasses, Play, X } from "lucide-react";
 import { SUPPORTED_DEVICES } from "@/lib/devices/catalog";
 import type { DeviceRecord, DeviceSetupInput, DeviceType, SyncPreference } from "@/lib/devices/types";
+import type { Task } from "@/lib/tasks";
 
 type DeviceVideo = {
   id: string;
@@ -15,6 +16,8 @@ type DeviceVideo = {
 };
 
 type ViewState = "loading" | "select" | "setup" | "gallery";
+
+type AnalyzeStatus = "idle" | "running" | "done" | "error";
 
 const DEFAULT_DEVICE_TYPE: DeviceType = "meta-ray-ban";
 
@@ -35,7 +38,11 @@ function formatDuration(seconds: number | null): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-export function DeviceView() {
+export function DeviceView({
+  onAnalysisComplete,
+}: {
+  onAnalysisComplete: (tasks: Task[]) => void;
+}) {
   const supportedDevice = SUPPORTED_DEVICES[0];
   const [viewState, setViewState] = useState<ViewState>("loading");
   const [device, setDevice] = useState<DeviceRecord | null>(null);
@@ -44,6 +51,10 @@ export function DeviceView() {
   const [saving, setSaving] = useState(false);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [activeVideo, setActiveVideo] = useState<DeviceVideo | null>(null);
+  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
+  const [analyzeStatus, setAnalyzeStatus] = useState<AnalyzeStatus>("idle");
+  const [analyzeProgress, setAnalyzeProgress] = useState("");
+  const [tasksCreated, setTasksCreated] = useState(0);
 
   const [deviceName, setDeviceName] = useState("");
   const [serialNumber, setSerialNumber] = useState("");
@@ -179,6 +190,7 @@ export function DeviceView() {
       setDevice(null);
       setVideos([]);
       setActiveVideo(null);
+      setSelectedVideoIds(new Set());
       setViewState("select");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to disconnect device");
@@ -186,6 +198,72 @@ export function DeviceView() {
       setSaving(false);
     }
   }, []);
+
+  const selectedVideos = useMemo(
+    () => videos.filter((video) => selectedVideoIds.has(video.id)),
+    [videos, selectedVideoIds]
+  );
+
+  const toggleVideoSelection = useCallback((videoId: string) => {
+    setSelectedVideoIds((current) => {
+      const next = new Set(current);
+      if (next.has(videoId)) {
+        next.delete(videoId);
+      } else {
+        next.add(videoId);
+      }
+      return next;
+    });
+  }, []);
+
+  const analyzeSelectedVideos = useCallback(async () => {
+    if (selectedVideos.length === 0 || analyzeStatus === "running") return;
+
+    setAnalyzeStatus("running");
+    setError("");
+    setTasksCreated(0);
+
+    const allTasks: Task[] = [];
+
+    try {
+      for (let index = 0; index < selectedVideos.length; index += 1) {
+        const video = selectedVideos[index];
+        setAnalyzeProgress(
+          `Analyzing ${index + 1} of ${selectedVideos.length}: ${video.title}`
+        );
+
+        const response = await fetch("/api/devices/videos/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: video.id }),
+        });
+        const data = (await response.json()) as {
+          tasks?: Task[];
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? `Failed to analyze ${video.title}`);
+        }
+
+        allTasks.push(...(data.tasks ?? []));
+      }
+
+      setTasksCreated(allTasks.length);
+      setAnalyzeStatus("done");
+      setAnalyzeProgress("");
+      setSelectedVideoIds(new Set());
+      onAnalysisComplete(allTasks);
+    } catch (err) {
+      setAnalyzeStatus("error");
+      setAnalyzeProgress("");
+      setError(err instanceof Error ? err.message : "Failed to analyze selected videos");
+      if (allTasks.length > 0) {
+        setTasksCreated(allTasks.length);
+        onAnalysisComplete(allTasks);
+      }
+    }
+  }, [analyzeStatus, onAnalysisComplete, selectedVideos]);
 
   if (viewState === "loading") {
     return (
@@ -336,10 +414,54 @@ export function DeviceView() {
         </div>
       </div>
 
-      <div>
-        <h2 className="section-title">Synced videos</h2>
-        <p className="section-desc">Videos captured on your glasses and stored in Cloudflare R2.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="section-title">Synced videos</h2>
+          <p className="section-desc">
+            Select videos from your glasses, then upload them for task scanning.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedVideoIds(
+                selectedVideoIds.size === videos.length
+                  ? new Set()
+                  : new Set(videos.map((video) => video.id))
+              )
+            }
+            className="btn-secondary focus-ring"
+            disabled={videos.length === 0 || analyzeStatus === "running"}
+          >
+            {selectedVideoIds.size === videos.length ? "Clear selection" : "Select all"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void analyzeSelectedVideos()}
+            className="btn-primary focus-ring"
+            disabled={selectedVideos.length === 0 || analyzeStatus === "running"}
+          >
+            {analyzeStatus === "running"
+              ? "Scanning…"
+              : `Upload & scan${selectedVideos.length > 0 ? ` (${selectedVideos.length})` : ""}`}
+          </button>
+        </div>
       </div>
+
+      {analyzeStatus === "running" && analyzeProgress ? (
+        <p className="callout callout-neutral">{analyzeProgress}</p>
+      ) : null}
+
+      {analyzeStatus === "done" && tasksCreated > 0 ? (
+        <p className="callout callout-success">
+          {tasksCreated} {tasksCreated === 1 ? "task" : "tasks"} created — switched to Tasks.
+        </p>
+      ) : null}
+
+      {analyzeStatus === "done" && tasksCreated === 0 ? (
+        <p className="callout callout-success">All clear — no tasks found in selected videos.</p>
+      ) : null}
 
       {loadingVideos ? (
         <p className="body-sm text-zinc-400">Loading videos…</p>
@@ -352,45 +474,55 @@ export function DeviceView() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {videos.map((video) => (
-            <button
-              key={video.id}
-              type="button"
-              onClick={() => setActiveVideo(video)}
-              className="focus-ring group widget-card overflow-hidden p-0 text-left"
-            >
-              <div className="relative aspect-video bg-zinc-950">
-                {video.thumbnailUrl ? (
-                  <video
-                    src={video.thumbnailUrl}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <video
-                    src={video.playbackUrl}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full object-cover"
-                  />
-                )}
-                <span className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition-opacity group-hover:opacity-100">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-900">
+          {videos.map((video) => {
+            const isSelected = selectedVideoIds.has(video.id);
+            return (
+              <div
+                key={video.id}
+                className={`widget-card overflow-hidden p-0 transition-shadow ${
+                  isSelected ? "ring-2 ring-zinc-900 ring-offset-2" : ""
+                }`}
+              >
+                <div className="relative aspect-video bg-zinc-950">
+                  <button
+                    type="button"
+                    onClick={() => setActiveVideo(video)}
+                    className="focus-ring group absolute inset-0"
+                    aria-label={`Play ${video.title}`}
+                  >
+                    <video
+                      src={video.thumbnailUrl ?? video.playbackUrl}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition-opacity group-hover:opacity-100">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-900">
                         <Play size={14} fill="currentColor" strokeWidth={0} aria-hidden />
-                  </span>
-                </span>
+                      </span>
+                    </span>
+                  </button>
+                  <label className="absolute left-2 top-2 flex cursor-pointer items-center gap-1.5 rounded-full bg-white/95 px-2 py-1 text-[11px] font-medium text-zinc-700 shadow-sm">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleVideoSelection(video.id)}
+                      disabled={analyzeStatus === "running"}
+                      className="h-3.5 w-3.5 rounded border-zinc-300"
+                    />
+                    Select
+                  </label>
+                </div>
+                <div className="p-3">
+                  <p className="truncate text-[13px] font-medium text-zinc-900">{video.title}</p>
+                  <p className="body-sm text-zinc-400">
+                    {formatDate(video.recordedAt)} · {formatDuration(video.durationSec)}
+                  </p>
+                </div>
               </div>
-              <div className="p-3">
-                <p className="truncate text-[13px] font-medium text-zinc-900">{video.title}</p>
-                <p className="body-sm text-zinc-400">
-                  {formatDate(video.recordedAt)} · {formatDuration(video.durationSec)}
-                </p>
-              </div>
-            </button>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -5,6 +5,7 @@ export type ActionStatus =
   | "proposed"
   | "accepted"
   | "rejected"
+  | "skipped"
   | "executing"
   | "done"
   | "failed";

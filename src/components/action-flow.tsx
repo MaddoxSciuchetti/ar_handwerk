@@ -58,6 +58,11 @@ export function ActionFlow({
     advance(patchAction(task, current.id, { status: "rejected" }));
   }, [advance, current, task]);
 
+  const skip = useCallback(() => {
+    if (!current || loading) return;
+    advance(patchAction(task, current.id, { status: "skipped" }));
+  }, [advance, current, loading, task]);
+
   const accept = useCallback(async () => {
     if (!current) return;
 
@@ -203,11 +208,11 @@ export function ActionFlow({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [accept, acceptDisabled, current, done, keyboardEnabled, loading, reject]);
+  }, [accept, acceptDisabled, current, done, keyboardEnabled, loading, reject, skip]);
 
   if (actions.length === 0) {
     return (
-      <div className="flex h-full min-h-48 items-center justify-center">
+      <div className="flex h-full min-h-80 items-center justify-center">
         <p className="text-[11px] text-zinc-400">Planning actions…</p>
       </div>
     );
@@ -215,17 +220,19 @@ export function ActionFlow({
 
   if (done) {
     return (
-      <div className="flex h-full min-h-48 items-center justify-center rounded-xl bg-emerald-50">
+      <div className="flex h-full min-h-80 items-center justify-center rounded-xl bg-emerald-50">
         <p className="text-[12px] font-medium text-emerald-700">All actions complete</p>
       </div>
     );
   }
 
-  if (!current) return null;
+  if (!current) {
+    return <div className="min-h-80 w-full" aria-hidden />;
+  }
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="relative min-h-56 flex-1 pt-2">
+    <div className="flex h-full min-h-80 flex-col gap-4">
+      <div className="relative min-h-64 flex-1 pt-2">
         {behind.map((action, i) => (
           <div
             key={action.id}
@@ -260,7 +267,7 @@ export function ActionFlow({
 
       {error ? <p className="text-[11px] text-red-600">{error}</p> : null}
 
-      <div className="flex gap-2">
+      <div className="flex items-stretch gap-2">
         <button
           type="button"
           onClick={reject}
@@ -271,6 +278,15 @@ export function ActionFlow({
           <kbd className="rounded border border-white/25 bg-white/15 px-1.5 py-0.5 text-[10px] font-normal leading-none">
             Q
           </kbd>
+        </button>
+        <button
+          type="button"
+          onClick={skip}
+          disabled={loading}
+          title="Skip this action and move to the next one"
+          className="focus-ring shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-[11px] font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
+        >
+          Skip
         </button>
         <button
           type="button"

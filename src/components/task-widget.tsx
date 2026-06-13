@@ -12,8 +12,6 @@ import {
 import { ActionFlow } from "@/components/action-flow";
 import type { Task } from "@/lib/tasks";
 
-const ATTRIBUTE_ICON = { size: 12, strokeWidth: 1.75, "aria-hidden": true as const };
-
 type TaskPillProps = {
   task: Task;
   selected: boolean;
@@ -58,9 +56,13 @@ export function TaskWidget({
   onTaskUpdate,
 }: TaskWidgetProps) {
   return (
-    <article className="widget-card flex w-full flex-col overflow-hidden">
-      <div className="flex min-h-72 flex-1 items-center justify-center px-4 py-6">
-        <div className="w-full max-w-md">
+    <article className="widget-card flex min-h-[28rem] w-full flex-col overflow-hidden">
+      <div className="flex min-h-12 shrink-0 items-center border-b border-zinc-100 px-5 py-4">
+        <TaskAttributePills task={task} />
+      </div>
+
+      <div className="flex min-h-96 flex-1 items-center justify-center px-5 py-8">
+        <div className="h-full w-full max-w-lg">
           <ActionFlow
             task={task}
             googleConnected={googleConnected}
@@ -69,67 +71,31 @@ export function TaskWidget({
           />
         </div>
       </div>
-
-      <div className="border-t border-zinc-100 bg-zinc-50/60 px-4 py-4">
-        <TaskSummary task={task} />
-      </div>
     </article>
   );
 }
 
-function TaskSummary({ task }: { task: Task }) {
+function TaskAttributePills({ task }: { task: Task }) {
   const attributes = getTaskAttributes(task);
 
+  if (attributes.length === 0) {
+    return <div className="min-h-7 w-full" aria-hidden />;
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-          Task details
-        </p>
-        <h3 className="mt-1 text-[14px] font-semibold leading-snug text-zinc-900">{task.title}</h3>
-      </div>
-
-      {attributes.length > 0 ? (
-        <ul className="flex flex-wrap gap-1.5">
-          {attributes.map((attribute) => (
-            <li key={attribute.key}>
-              <span
-                title={`${attribute.label}: ${attribute.value}`}
-                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white px-2 py-1 text-[11px] text-zinc-700"
-              >
-                <span className={`shrink-0 ${attribute.tone}`}>{attribute.icon}</span>
-                <span className="truncate font-medium">{attribute.value}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {task.problem ? (
-        <p className="text-[12px] leading-relaxed text-zinc-600">{task.problem}</p>
-      ) : null}
-
-      <dl className="grid gap-2 text-[12px] sm:grid-cols-2">
-        {task.assignee ? (
-          <Field label="Assignee" value={task.assignee} icon={<User {...ATTRIBUTE_ICON} />} tone="text-sky-600" />
-        ) : null}
-        {task.location ? (
-          <Field label="Location" value={task.location} icon={<MapPin {...ATTRIBUTE_ICON} />} tone="text-rose-600" />
-        ) : null}
-        {task.deadline ? (
-          <Field label="Deadline" value={task.deadline} icon={<Calendar {...ATTRIBUTE_ICON} />} tone="text-amber-600" />
-        ) : null}
-        {task.itemToBuy ? (
-          <Field label="To buy" value={task.itemToBuy} icon={<ShoppingCart {...ATTRIBUTE_ICON} />} tone="text-emerald-600" />
-        ) : null}
-        {task.material ? (
-          <Field label="Material" value={task.material} icon={<Package {...ATTRIBUTE_ICON} />} tone="text-orange-600" />
-        ) : null}
-        {task.equipment ? (
-          <Field label="Equipment" value={task.equipment} icon={<Wrench {...ATTRIBUTE_ICON} />} tone="text-violet-600" />
-        ) : null}
-      </dl>
-    </div>
+    <ul className="flex flex-wrap gap-1.5">
+      {attributes.map((attribute) => (
+        <li key={attribute.key}>
+          <span
+            title={`${attribute.label}: ${attribute.value}`}
+            className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-zinc-200/80 bg-zinc-50 px-2.5 py-1 text-[11px] text-zinc-700"
+          >
+            <span className={`shrink-0 ${attribute.tone}`}>{attribute.icon}</span>
+            <span className="truncate font-medium">{attribute.value}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -140,6 +106,8 @@ type TaskAttribute = {
   icon: ReactNode;
   tone: string;
 };
+
+const ATTRIBUTE_ICON = { size: 12, strokeWidth: 1.75, "aria-hidden": true as const };
 
 function getTaskAttributes(task: Task): TaskAttribute[] {
   const attributes: TaskAttribute[] = [];
@@ -200,26 +168,4 @@ function getTaskAttributes(task: Task): TaskAttribute[] {
   }
 
   return attributes;
-}
-
-function Field({
-  label,
-  value,
-  icon,
-  tone,
-}: {
-  label: string;
-  value: string;
-  icon: ReactNode;
-  tone: string;
-}) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-        <span className={tone}>{icon}</span>
-        {label}
-      </dt>
-      <dd className="font-medium text-zinc-800">{value}</dd>
-    </div>
-  );
 }
