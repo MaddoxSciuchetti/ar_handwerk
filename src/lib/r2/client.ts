@@ -1,4 +1,9 @@
-import { GetObjectCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
+import {
+  GetObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const PRESIGN_TTL_SECONDS = 60 * 60;
@@ -108,5 +113,37 @@ export function isR2Configured(): boolean {
       process.env.R2_ACCESS_KEY_ID &&
       process.env.R2_SECRET_ACCESS_KEY &&
       process.env.R2_BUCKET_NAME
+  );
+}
+
+function mimeTypeForKey(key: string): string {
+  const lower = key.toLowerCase();
+  if (lower.endsWith(".mov")) return "video/quicktime";
+  if (lower.endsWith(".webm")) return "video/webm";
+  if (lower.endsWith(".m4v")) return "video/x-m4v";
+  return "video/mp4";
+}
+
+function sanitizeFilename(filename: string): string {
+  const base = filename.split("/").pop() ?? "video.mp4";
+  const cleaned = base.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return cleaned || "video.mp4";
+}
+
+export function buildR2UploadKey(userId: string, filename: string): string {
+  return `uploads/${userId}/${Date.now()}-${sanitizeFilename(filename)}`;
+}
+
+export async function uploadR2Video(file: File, key: string): Promise<void> {
+  const { bucketName } = getR2Config();
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  await getR2Client().send(
+    new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Body: bytes,
+      ContentType: file.type || mimeTypeForKey(key),
+    })
   );
 }

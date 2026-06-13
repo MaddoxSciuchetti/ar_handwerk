@@ -79,8 +79,22 @@ export function UploadView({
     setTranscriptPreview("");
   }, []);
 
+  const uploadToR2 = useCallback(async (videoFile: File) => {
+    const form = new FormData();
+    form.append("video", videoFile);
+    const res = await fetch("/api/devices/videos/upload", { method: "POST", body: form });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error((json as { error?: string }).error ?? "Failed to upload video to storage");
+    }
+  }, []);
+
   const runPipeline = useCallback(async (videoFile: File) => {
     reset();
+
+    void uploadToR2(videoFile).catch((err) => {
+      console.error("R2 upload failed:", err);
+    });
 
     setTranscribeStatus("active");
     let transcriptText = "";
@@ -151,7 +165,7 @@ export function UploadView({
       setPioneerStatus("error");
       setError(err instanceof Error ? err.message : "Analysis failed");
     }
-  }, [onAnalysisComplete, reset]);
+  }, [onAnalysisComplete, reset, uploadToR2]);
 
   const pickFile = useCallback(
     (next: File | null) => {
