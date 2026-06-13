@@ -13,6 +13,7 @@
   --ui-body-sm: 11px;
   --ui-body: 12px;
   --ui-page-title: 15px;
+  --ui-hero-title: 24px;
   --ui-section-title: 13px;
   --ui-page-desc: 12px;
   --ui-section-desc: 11px;
@@ -337,6 +338,14 @@ body {
     color: rgb(24 24 27);
   }
 
+  .page-title-hero {
+    font-size: var(--ui-hero-title);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: rgb(24 24 27);
+  }
+
   .page-desc {
     margin-top: 0.125rem;
     font-size: var(--ui-page-desc);
@@ -414,4 +423,28 @@ body {
   box-shadow:
     0 0 0 0.5px rgba(16, 185, 129, 0.08),
     0 4px 16px rgba(16, 185, 129, 0.06);
+}
+
+.action-card-layer {
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 320ms ease,
+    top 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 320ms ease;
+}
+
+.action-card-front {
+  animation: action-card-enter 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes action-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

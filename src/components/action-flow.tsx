@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ActionCardContent } from "@/components/action-cards/action-card-content";
+import { ActionCardStack } from "@/components/action-card-stack";
 import type { ProposedAction } from "@/lib/actions/types";
 import type { TaskActionResult } from "@/lib/integrations/types";
 import type { Task } from "@/lib/tasks";
@@ -41,7 +42,6 @@ export function ActionFlow({
   const actions = task.proposedActions ?? [];
   const step = task.actionFlowStep ?? 0;
   const current = actions[step];
-  const behind = actions.slice(step + 1, step + 3);
   const done = step >= actions.length;
 
   const advance = useCallback(
@@ -231,48 +231,35 @@ export function ActionFlow({
   }
 
   return (
-    <div className="flex h-full min-h-80 flex-col gap-4">
-      <div className="relative min-h-64 flex-1 pt-2">
-        {behind.map((action, i) => (
-          <div
-            key={action.id}
-            className="absolute inset-x-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm"
-            style={{
-              top: `${(behind.length - i) * 10}px`,
-              transform: `scale(${1 - (behind.length - i) * 0.04})`,
-              zIndex: i,
-              opacity: 0.45 + i * 0.15,
-            }}
-          >
-            <p className="truncate text-[11px] font-medium text-zinc-500">{action.title}</p>
-          </div>
-        ))}
-
-        <div className="relative z-10 rounded-xl border border-zinc-200 bg-white p-4 shadow-md">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <ActionCardStack actions={actions} step={step}>
+          <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
             {step + 1} of {actions.length}
           </p>
-          <h4 className="mb-3 text-[13px] font-semibold text-zinc-900">{current.title}</h4>
+          <h4 className="mb-3 shrink-0 text-[13px] font-semibold text-zinc-900">{current.title}</h4>
           {current.reasoning ? (
-            <p className="mb-3 text-[11px] text-zinc-500">{current.reasoning}</p>
+            <p className="mb-3 shrink-0 text-[11px] text-zinc-500">{current.reasoning}</p>
           ) : null}
-          <ActionCardContent
-            action={current}
-            googleConnected={googleConnected}
-            calendarDraft={calendarDraft ?? current.calendarDraft}
-            onCalendarDraftChange={setCalendarDraft}
-          />
-        </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <ActionCardContent
+              action={current}
+              googleConnected={googleConnected}
+              calendarDraft={calendarDraft ?? current.calendarDraft}
+              onCalendarDraftChange={setCalendarDraft}
+            />
+          </div>
+        </ActionCardStack>
       </div>
 
-      {error ? <p className="text-[11px] text-red-600">{error}</p> : null}
+      {error ? <p className="shrink-0 text-[11px] text-red-600">{error}</p> : null}
 
-      <div className="flex items-stretch gap-2">
+      <div className="grid shrink-0 grid-cols-3 gap-2">
         <button
           type="button"
           onClick={reject}
           disabled={loading}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-full bg-red-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
         >
           Reject
           <kbd className="rounded border border-white/25 bg-white/15 px-1.5 py-0.5 text-[10px] font-normal leading-none">
@@ -284,7 +271,7 @@ export function ActionFlow({
           onClick={skip}
           disabled={loading}
           title="Skip this action and move to the next one"
-          className="focus-ring shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-[11px] font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
+          className="focus-ring rounded-full border border-zinc-200 bg-white px-3 py-2.5 text-[11px] font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
         >
           Skip
         </button>
@@ -292,7 +279,7 @@ export function ActionFlow({
           type="button"
           onClick={() => void accept()}
           disabled={acceptDisabled}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-full bg-emerald-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
         >
           {loading ? "Working…" : acceptLabel}
           {!loading ? (

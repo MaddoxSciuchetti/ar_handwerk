@@ -1,6 +1,6 @@
 "use client";
 
-import type { ProfileUser } from "@/components/profile-menu";
+import { ProfileAvatar, type ProfileUser } from "@/components/profile-menu";
 
 type ProfileSettingsViewProps = {
   user: ProfileUser;
@@ -18,9 +18,7 @@ export function ProfileSettingsView({ user, email, onSignOut }: ProfileSettingsV
 
       <div className="widget-card flex flex-col gap-4 p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-700 ring-1 ring-zinc-200/80">
-            {user.initials}
-          </span>
+          <ProfileAvatar alt={user.name} size="lg" />
           <div className="min-w-0">
             <p className="truncate text-[15px] font-medium text-zinc-900">{user.name}</p>
             <p className="truncate text-[13px] text-zinc-500">{email}</p>

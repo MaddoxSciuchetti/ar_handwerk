@@ -37,16 +37,16 @@ export function ActionCardContent({
   if (action.type === "email" && action.emailDraft) {
     const draft = action.emailDraft;
     return (
-      <div className="flex flex-col gap-2">
-        <div className="grid gap-1 text-[11px]">
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <div className="grid shrink-0 gap-1 text-[11px]">
           <Row label="To" value={draft.to} />
           <Row label="Subject" value={draft.subject} />
         </div>
-        <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-lg bg-zinc-50 p-2.5 text-[11px] leading-relaxed text-zinc-700">
+        <pre className="min-h-[14rem] flex-1 overflow-auto whitespace-pre-wrap rounded-lg bg-zinc-50 p-2.5 text-[11px] leading-relaxed text-zinc-700">
           {draft.body}
         </pre>
         {!googleConnected ? (
-          <p className="text-[11px] text-amber-700">Connect Google in Settings to send.</p>
+          <p className="shrink-0 text-[11px] text-amber-700">Connect Google in Settings to send.</p>
         ) : null}
       </div>
     );

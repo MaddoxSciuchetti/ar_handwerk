@@ -200,7 +200,7 @@ export function GmailView({ googleConnected }: GmailViewProps) {
     return (
       <CenteredPageContent>
         <h1 className="page-title">Mail</h1>
-        <div className="widget-card flex flex-col gap-2">
+        <div className="widget-card flex h-[28rem] flex-col items-start justify-start gap-2">
           <p className="text-[12px] font-medium text-zinc-700">Connect Google to use Mail</p>
           <p className="body-sm text-zinc-500">
             Go to Workspace and connect your Google account. You will need to reconnect if you

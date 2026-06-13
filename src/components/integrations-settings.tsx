@@ -363,17 +363,21 @@ export function IntegrationsSettings({
         <p className="callout callout-neutral">{banner}</p>
       ) : null}
 
-      <section className="widget-card min-w-0">
+      <section className="widget-card flex h-[28rem] min-w-0 flex-col">
         {category === "productivity" ? (
           googleLoading ? (
-            <p className="body-sm text-zinc-400">Loading Google status…</p>
+            <div className="flex flex-1 items-center justify-center">
+              <p className="body-sm text-zinc-400">Loading Google status…</p>
+            </div>
           ) : !googleStatus?.configured ? (
-            <p className="callout callout-warning">
-              Google OAuth is not configured. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and
-              GOOGLE_REDIRECT_URI to your environment.
-            </p>
+            <div className="flex flex-1 items-center justify-center">
+              <p className="callout callout-warning">
+                Google OAuth is not configured. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and
+                GOOGLE_REDIRECT_URI to your environment.
+              </p>
+            </div>
           ) : (
-            <div className="flex flex-col">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               {googleAccountConnected ? (
                 <div className="mb-2 flex flex-col gap-1">
                   <div className="callout callout-success">
@@ -417,7 +421,7 @@ export function IntegrationsSettings({
             </div>
           )
         ) : (
-          <div className="flex flex-col">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             {allIntegrations.map((integration, index) => (
               <IntegrationRow
                 key={integration.id}
@@ -442,11 +446,6 @@ export function IntegrationsSettings({
           </div>
         )}
 
-        {category === "messaging" ? (
-          <p className="mt-2 body-sm text-zinc-500">
-            Sign up for a service before connecting it here.
-          </p>
-        ) : null}
       </section>
     </CenteredPageContent>
   );
@@ -560,52 +559,40 @@ function IntegrationRow({
             />
           </div>
 
-          {!connected ? (
-            <p className="callout callout-warning mt-1.5">
-              You haven&apos;t signed up yet. Create an account with {integration.name}, then
-              connect it here to enable this integration.
-            </p>
-          ) : enabled ? (
-            <p className="mt-1.5 body-sm text-emerald-700">Enabled</p>
-          ) : (
-            <p className="mt-1.5 body-sm text-zinc-400">Connected — toggle on to enable</p>
-          )}
+          {connected ? (
+            enabled ? (
+              <p className="mt-1.5 body-sm text-emerald-700">Enabled</p>
+            ) : (
+              <p className="mt-1.5 body-sm text-zinc-400">Connected — toggle on to enable</p>
+            )
+          ) : null}
 
           {connecting ? (
-            <div className="mt-2 rounded-md border border-zinc-200 bg-zinc-50 p-2">
-              <p className="body-sm font-medium text-zinc-800">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onConnect}
+                className="btn-primary focus-ring"
+              >
                 Connect {integration.name}
-              </p>
-              <p className="mt-0.5 body-sm text-zinc-500">
-                Sign up or sign in to {integration.name} first, then authorize Field to send
-                task updates.
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={onConnect}
-                  className="btn-primary focus-ring"
+              </button>
+              {integration.signUpUrl !== "https://" ? (
+                <a
+                  href={integration.signUpUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-secondary"
                 >
-                  Connect {integration.name}
-                </button>
-                {integration.signUpUrl !== "https://" ? (
-                  <a
-                    href={integration.signUpUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-secondary"
-                  >
-                    Sign up
-                  </a>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={onDismissConnect}
-                  className="btn-text"
-                >
-                  Cancel
-                </button>
-              </div>
+                  Sign up
+                </a>
+              ) : null}
+              <button
+                type="button"
+                onClick={onDismissConnect}
+                className="btn-text"
+              >
+                Cancel
+              </button>
             </div>
           ) : null}
 
