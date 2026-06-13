@@ -1,0 +1,83 @@
+{
+    "model": "c71c07b1-3dd6-42fa-b093-76e5c35fc347",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Also Mikro läuft? Ja okay, ich lass das jetzt einfach mitlaufen während ich durchs Lager geh, dann hab ich nachher alles für den Tagesreport.\n\nMorgen Tobi, hast du den Schlüsselbund für die Wohnung in Wedding gesehen? Der mit dem grünen Anhänger. Nee, der lag gestern noch hier auf dem Tresen, ich schwör's dir. Ach Mensch. Frag mal Kevin, der war als Letzter da oben. Kevin? Kevin ist heut erst um zehn da, der hat ja gestern bis halb neun in Spandau gehangen wegen dem Rohrbruch. Stimmt, ja.\n\nMoment, Telefon... Berliner Hausmeisterservice, Lehmann, guten Morgen. Ja. Ja. Mhm. Okay, also Wasser tropft durch die Decke vom Bad, im Erdgeschoss bei den Nachbarn. Wann ist das angefangen? Heute Nacht, okay. Ich schick Ihnen jemanden, geben Sie mir bitte nochmal die genaue Adresse... Pankow, Florastraße 47, dritter Stock rechts. Wir versuchen bis Mittag jemanden hinzubekommen, ich melde mich gleich nochmal mit konkreter Zeit. Ja, danke, tschüss.\n\nTobi, hörst du, Notfall Pankow, Wasserschaden, müssen heut noch hin. Wer ist denn frei? Marek hat die Heizungswartung in Friedrichshain, das zieht sich. Dennis ist bei der Trockenbau-Sache in Charlottenburg, der ist die ganze Woche da. Hmm. Ich ruf Marek an, vielleicht kann er die Wartung schieben.\n\nMarek, hi, ich bin's. Sag mal, wo stehst du gerade? ... Ja okay, hör zu, ich hab nen Wasserschaden in Pankow, oben im dritten tropft's auf die Nachbarn unten. Kannst du da kurz hin nach der Wartung oder soll ich umbuchen? ... Bis zwei? Das ist mir zu spät, wenn das weiter sifft haben wir die Versicherung am Hals. Weißt du was, ich schick erst mal Jonas vorbei, der soll den Haupthahn finden und absperren, dann kommst du nach. Ja. Ja, genau. Bis später.\n\nJonas! Jonas, komm mal her. Du fährst zuerst nach Pankow, Florastraße 47, Wasserschaden, du musst nur erst mal die Lage sichern. Haupthahn zu, schauen wo's herkommt, Fotos machen für die Doku, ja? Marek kommt dann gegen zwei und macht die eigentliche Reparatur. Nimm die kleine Werkzeugkiste und den Nasssauger mit, falls da unten W"
+        }
+    ],
+    "schema": {
+        "entities": [
+            "task",
+            "problem",
+            "proposed_action",
+            "equipment",
+            "material",
+            "location",
+            "decision",
+            "deadline",
+            "people",
+            "cost",
+            "difficulty"
+        ],
+        "structures": {
+            "service_task": {
+                "fields": [
+                    {
+                        "name": "task",
+                        "type": "string"
+                    },
+                    {
+                        "name": "problem",
+                        "type": "string"
+                    },
+                    {
+                        "name": "proposed_action",
+                        "type": "string"
+                    },
+                    {
+                        "name": "equipment",
+                        "type": "string"
+                    },
+                    {
+                        "name": "material",
+                        "type": "string"
+                    },
+                    {
+                        "name": "location",
+                        "type": "string"
+                    },
+                    {
+                        "name": "decision",
+                        "type": "string"
+                    },
+                    {
+                        "name": "deadline",
+                        "type": "string"
+                    },
+                    {
+                        "name": "people",
+                        "type": "string"
+                    },
+                    {
+                        "name": "cost",
+                        "type": "string"
+                    },
+                    {
+                        "name": "difficulty",
+                        "type": "string"
+                    }
+                ]
+            }
+        },
+        "relations": [
+            "assigned_to",
+            "located_at",
+            "requires_material",
+            "requires_equipment",
+            "has_deadline",
+            "has_cost",
+            "solves_problem"
+        ]
+    }
+}

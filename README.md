@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Munich Hackathon
+
+> ⚠️ **Placeholder** — this README captures high-level information only. Details will evolve as the project takes shape.
+
+A [Next.js](https://nextjs.org) application built for the Munich Hackathon.
+
+## Overview
+
+This project is the starting point for our hackathon submission. The goal, scope, and feature set are still being defined — this document is intended to give a quick, high-level orientation to anyone joining the project.
+
+- **What:** _TBD — describe the product/idea here._
+- **Why:** _TBD — the problem we're solving and who it's for._
+- **How:** A modern web app powered by Next.js, React, and TypeScript.
+
+## Tech Stack
+
+| Layer        | Technology                          |
+| ------------ | ----------------------------------- |
+| Framework    | [Next.js](https://nextjs.org) (App Router) |
+| Language     | [TypeScript](https://www.typescriptlang.org) |
+| UI           | [React](https://react.dev)          |
+| Styling      | [Tailwind CSS](https://tailwindcss.com) |
+| Linting      | [ESLint](https://eslint.org)        |
+| Bundler      | [Turbopack](https://turbo.build/pack) |
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and start the development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser to see the app. Editing `src/app/page.tsx` will hot-reload the page.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Available Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command         | Description                          |
+| --------------- | ------------------------------------ |
+| `npm run dev`   | Start the local development server   |
+| `npm run build` | Create an optimized production build |
+| `npm run start` | Run the production build locally     |
+| `npm run lint`  | Lint the codebase with ESLint        |
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```text
+.
+├── public/             # Static assets
+├── src/
+│   └── app/            # App Router routes, layouts, and styles
+│       ├── layout.tsx  # Root layout
+│       ├── page.tsx    # Home page
+│       └── globals.css # Global styles
+├── next.config.ts      # Next.js configuration
+└── package.json        # Dependencies and scripts
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Roadmap
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- [ ] Define the core problem statement and scope
+- [ ] Design the data model and key flows
+- [ ] Build the primary user-facing feature(s)
+- [ ] Add tests and CI
+- [ ] Prepare the demo and pitch
 
-## Deploy on Vercel
+## Team
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+_TBD — add team members and roles here._
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+_TBD — choose a license before publishing._

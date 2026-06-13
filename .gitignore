@@ -32,6 +32,17 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!**/.env.example
+
+# python (pioneer pipeline)
+__pycache__/
+*.pyc
+.venv/
+pioneer/.venv/
+
+# generated training artifacts (derived from data/raw + data/labels)
+pioneer/data/train.jsonl
+pioneer/data/eval.jsonl
 
 # vercel
 .vercel
