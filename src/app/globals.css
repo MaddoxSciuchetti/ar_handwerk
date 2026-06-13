@@ -312,6 +312,11 @@ body {
     transform: scale(0.995);
   }
 
+  .upload-dropzone {
+    cursor: pointer;
+    user-select: none;
+  }
+
   .menu-item {
     cursor: pointer;
     user-select: none;
