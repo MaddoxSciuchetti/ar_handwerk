@@ -10,8 +10,10 @@ type StageStatus = "idle" | "active" | "done" | "error";
 const ACCEPTED = "video/*";
 
 export function UploadView({
+  userName,
   onAnalysisComplete,
 }: {
+  userName: string;
   onAnalysisComplete: (tasks: Task[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,23 +57,14 @@ export function UploadView({
     setTranscriptPreview("");
   }, []);
 
-  const pickFile = useCallback(
-    (next: File | null) => {
-      reset();
-      setFile(next);
-    },
-    [reset],
-  );
-
-  const runPipeline = useCallback(async () => {
-    if (!file) return;
+  const runPipeline = useCallback(async (videoFile: File) => {
     reset();
 
     setTranscribeStatus("active");
     let transcriptText = "";
     try {
       const form = new FormData();
-      form.append("video", file);
+      form.append("video", videoFile);
       const res = await fetch("/api/transcribe", { method: "POST", body: form });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Transcription failed");
@@ -136,7 +129,21 @@ export function UploadView({
       setPioneerStatus("error");
       setError(err instanceof Error ? err.message : "Analysis failed");
     }
-  }, [file, onAnalysisComplete, reset]);
+  }, [onAnalysisComplete, reset]);
+
+  const pickFile = useCallback(
+    (next: File | null) => {
+      if (running) return;
+      if (!next) {
+        reset();
+        setFile(null);
+        return;
+      }
+      setFile(next);
+      void runPipeline(next);
+    },
+    [reset, running, runPipeline],
+  );
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -152,26 +159,31 @@ export function UploadView({
     transcribeStatus !== "idle" ||
     pioneerStatus !== "idle" ||
     planStatus !== "idle" ||
-    error ||
+    Boolean(error) ||
     done ||
-    (transcriptSource && transcribeStatus === "done") ||
-    (transcribeStatus === "done" && transcriptionPrompt) ||
-    (transcribeStatus === "done" && transcriptPreview);
+    Boolean(transcriptSource) ||
+    Boolean(transcriptionPrompt) ||
+    Boolean(transcriptPreview);
 
   return (
     <div className="flex min-h-[calc(100vh-3rem)] flex-col">
+      <h1 className="page-title shrink-0">Hallo {userName}</h1>
+
       <div className="flex flex-1 flex-col items-center justify-center px-2 py-6">
         <div className="flex w-full max-w-md flex-col items-center gap-4">
           <button
             type="button"
+            disabled={running}
             onDragOver={(e) => {
               e.preventDefault();
-              setDragging(true);
+              if (!running) setDragging(true);
             }}
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
-            onClick={() => inputRef.current?.click()}
-            className={`group upload-dropzone focus-ring flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-8 py-10 text-center transition-all duration-150 ${
+            onClick={() => {
+              if (!running) inputRef.current?.click();
+            }}
+            className={`group upload-dropzone focus-ring flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-8 py-10 text-center transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-70 ${
               dragging
                 ? "border-zinc-400 bg-zinc-50/90 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]"
                 : "border-zinc-300 bg-white/40 hover:border-zinc-400 hover:bg-white/70 active:border-zinc-500 active:bg-zinc-50 active:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]"
@@ -193,7 +205,8 @@ export function UploadView({
               <>
                 <p className="text-[13px] font-medium text-zinc-900">{file.name}</p>
                 <p className="body-sm text-zinc-400">
-                  {(file.size / 1024 / 1024).toFixed(1)} MB · click to replace
+                  {(file.size / 1024 / 1024).toFixed(1)} MB
+                  {running ? " · analyzing…" : " · click to replace"}
                 </p>
               </>
             ) : (
@@ -215,15 +228,6 @@ export function UploadView({
               />
             </div>
           ) : null}
-
-          <button
-            type="button"
-            disabled={!file || running}
-            onClick={runPipeline}
-            className="btn-primary focus-ring w-full max-w-xs"
-          >
-            {running ? "Processing…" : "Analyze"}
-          </button>
         </div>
       </div>
 
