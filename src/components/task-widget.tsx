@@ -1,8 +1,18 @@
 "use client";
 
 import type { ReactNode } from "react";
+import {
+  Calendar,
+  MapPin,
+  Package,
+  ShoppingCart,
+  User,
+  Wrench,
+} from "lucide-react";
 import { ActionFlow } from "@/components/action-flow";
 import type { Task } from "@/lib/tasks";
+
+const ATTRIBUTE_ICON = { size: 12, strokeWidth: 1.75, "aria-hidden": true as const };
 
 type TaskPillProps = {
   task: Task;
@@ -101,22 +111,22 @@ function TaskSummary({ task }: { task: Task }) {
 
       <dl className="grid gap-2 text-[12px] sm:grid-cols-2">
         {task.assignee ? (
-          <Field label="Assignee" value={task.assignee} icon={<PersonIcon />} tone="text-sky-600" />
+          <Field label="Assignee" value={task.assignee} icon={<User {...ATTRIBUTE_ICON} />} tone="text-sky-600" />
         ) : null}
         {task.location ? (
-          <Field label="Location" value={task.location} icon={<LocationIcon />} tone="text-rose-600" />
+          <Field label="Location" value={task.location} icon={<MapPin {...ATTRIBUTE_ICON} />} tone="text-rose-600" />
         ) : null}
         {task.deadline ? (
-          <Field label="Deadline" value={task.deadline} icon={<DeadlineIcon />} tone="text-amber-600" />
+          <Field label="Deadline" value={task.deadline} icon={<Calendar {...ATTRIBUTE_ICON} />} tone="text-amber-600" />
         ) : null}
         {task.itemToBuy ? (
-          <Field label="To buy" value={task.itemToBuy} icon={<PurchaseIcon />} tone="text-emerald-600" />
+          <Field label="To buy" value={task.itemToBuy} icon={<ShoppingCart {...ATTRIBUTE_ICON} />} tone="text-emerald-600" />
         ) : null}
         {task.material ? (
-          <Field label="Material" value={task.material} icon={<MaterialIcon />} tone="text-orange-600" />
+          <Field label="Material" value={task.material} icon={<Package {...ATTRIBUTE_ICON} />} tone="text-orange-600" />
         ) : null}
         {task.equipment ? (
-          <Field label="Equipment" value={task.equipment} icon={<EquipmentIcon />} tone="text-violet-600" />
+          <Field label="Equipment" value={task.equipment} icon={<Wrench {...ATTRIBUTE_ICON} />} tone="text-violet-600" />
         ) : null}
       </dl>
     </div>
@@ -139,7 +149,7 @@ function getTaskAttributes(task: Task): TaskAttribute[] {
       key: "assignee",
       label: "Assignee",
       value: task.assignee,
-      icon: <PersonIcon />,
+      icon: <User {...ATTRIBUTE_ICON} />,
       tone: "text-sky-600",
     });
   }
@@ -148,7 +158,7 @@ function getTaskAttributes(task: Task): TaskAttribute[] {
       key: "location",
       label: "Location",
       value: task.location,
-      icon: <LocationIcon />,
+      icon: <MapPin {...ATTRIBUTE_ICON} />,
       tone: "text-rose-600",
     });
   }
@@ -157,7 +167,7 @@ function getTaskAttributes(task: Task): TaskAttribute[] {
       key: "deadline",
       label: "Deadline",
       value: task.deadline,
-      icon: <DeadlineIcon />,
+      icon: <Calendar {...ATTRIBUTE_ICON} />,
       tone: "text-amber-600",
     });
   }
@@ -166,7 +176,7 @@ function getTaskAttributes(task: Task): TaskAttribute[] {
       key: "itemToBuy",
       label: "To buy",
       value: task.itemToBuy,
-      icon: <PurchaseIcon />,
+      icon: <ShoppingCart {...ATTRIBUTE_ICON} />,
       tone: "text-emerald-600",
     });
   }
@@ -175,7 +185,7 @@ function getTaskAttributes(task: Task): TaskAttribute[] {
       key: "material",
       label: "Material",
       value: task.material,
-      icon: <MaterialIcon />,
+      icon: <Package {...ATTRIBUTE_ICON} />,
       tone: "text-orange-600",
     });
   }
@@ -184,7 +194,7 @@ function getTaskAttributes(task: Task): TaskAttribute[] {
       key: "equipment",
       label: "Equipment",
       value: task.equipment,
-      icon: <EquipmentIcon />,
+      icon: <Wrench {...ATTRIBUTE_ICON} />,
       tone: "text-violet-600",
     });
   }
@@ -211,90 +221,5 @@ function Field({
       </dt>
       <dd className="font-medium text-zinc-800">{value}</dd>
     </div>
-  );
-}
-
-function PersonIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M20 21a8 8 0 00-16 0M12 11a4 4 0 100-8 4 4 0 000 8z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function LocationIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 21s7-4.35 7-11a7 7 0 10-14 0c0 6.65 7 11 7 11z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.75" />
-    </svg>
-  );
-}
-
-function DeadlineIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M7 3v3M17 3v3M4 8h16M6 6h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function PurchaseIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M6 6h15l-1.5 9h-12L6 6zM6 6l-1-3H3M9 20a1 1 0 100-2 1 1 0 000 2zM18 20a1 1 0 100-2 1 1 0 000 2z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function MaterialIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M21 8l-9-5-9 5 9 5 9-5zM3 10.5V17l9 5 9-5v-6.5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function EquipmentIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 005.4-5.4l-2.1 2.1-3.3-3.3 2.1-2.1z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }

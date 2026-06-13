@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Glasses, Play, X } from "lucide-react";
 import { SUPPORTED_DEVICES } from "@/lib/devices/catalog";
 import type { DeviceRecord, DeviceSetupInput, DeviceType, SyncPreference } from "@/lib/devices/types";
 
@@ -205,7 +206,7 @@ export function DeviceView() {
         <div className="flex flex-1 items-center justify-center px-2 py-6">
           <div className="widget-card w-full max-w-md p-6 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-600">
-              <GlassesIcon />
+              <Glasses size={28} strokeWidth={1.75} aria-hidden />
             </div>
             <h2 className="section-title">{supportedDevice.label}</h2>
             <p className="body-sm mt-1 text-zinc-500">{supportedDevice.description}</p>
@@ -378,7 +379,7 @@ export function DeviceView() {
                 )}
                 <span className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition-opacity group-hover:opacity-100">
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-900">
-                    <PlayIcon />
+                        <Play size={14} fill="currentColor" strokeWidth={0} aria-hidden />
                   </span>
                 </span>
               </div>
@@ -410,7 +411,7 @@ export function DeviceView() {
               className="focus-ring absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white"
               aria-label="Close video"
             >
-              <CloseIcon />
+              <X size={16} strokeWidth={1.75} aria-hidden />
             </button>
             <video
               src={activeVideo.playbackUrl}
@@ -429,43 +430,5 @@ export function DeviceView() {
         </div>
       ) : null}
     </div>
-  );
-}
-
-function GlassesIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M2 12a4 4 0 014-4h2a4 4 0 014 4 4 4 0 014-4h2a4 4 0 014 4"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-      <path d="M6 12h12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M8 5v14l11-7L8 5z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M18 6L6 18M6 6l12 12"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }

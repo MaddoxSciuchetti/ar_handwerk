@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import type { GoogleConnectionStatus } from "@/lib/integrations/types";
 import {
   CONNECTED_STORAGE_KEY,
@@ -505,23 +506,10 @@ function AddIntegrationControl({
           aria-label="Add integration"
           className="focus-ring flex h-7 w-7 items-center justify-center rounded-md border border-dashed border-zinc-300 text-zinc-500 transition-colors hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-700"
         >
-          <PlusIcon />
+          <Plus size={12} strokeWidth={2} aria-hidden />
         </button>
       )}
     </div>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 5v14M5 12h14"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }
 

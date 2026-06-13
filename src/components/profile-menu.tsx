@@ -1,33 +1,13 @@
 "use client";
 
 import { Menu } from "@base-ui-components/react/menu";
+import { ChevronDown } from "lucide-react";
 
 export type ProfileUser = {
   name: string;
   role: string;
   initials: string;
 };
-
-function ChevronIcon({ open }: { open?: boolean }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      className={`shrink-0 text-zinc-400 transition-transform duration-150 group-hover:text-zinc-500 ${open ? "rotate-180" : ""}`}
-    >
-      <path
-        d="M6 9l6 6 6-6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 type ProfileMenuProps = {
   collapsed: boolean;
@@ -59,7 +39,12 @@ export function ProfileMenu({ collapsed, user, onOpenSettings, onSignOut }: Prof
                 {user.role}
               </span>
             </span>
-            <ChevronIcon />
+            <ChevronDown
+              size={12}
+              strokeWidth={2}
+              aria-hidden
+              className="shrink-0 text-zinc-400 transition-transform duration-150 group-hover:text-zinc-500 group-data-[popup-open]:rotate-180"
+            />
           </>
         )}
       </Menu.Trigger>

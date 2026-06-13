@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, FileVideo, Loader2, Maximize2, Video, X } from "lucide-react";
 import { parsePioneerTasks } from "@/lib/tasks";
 import type { Task } from "@/lib/tasks";
 
@@ -228,7 +229,7 @@ export function UploadView({
                 className="focus-ring group flex w-full flex-col items-center gap-3 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 transition-all duration-150 group-hover:bg-zinc-200/80 group-hover:text-zinc-600 group-active:scale-[1.04] group-active:bg-zinc-200 group-active:text-zinc-700 group-active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]">
-                  <DocumentIcon />
+                  <FileVideo size={28} strokeWidth={1.5} aria-hidden />
                 </div>
                 <div>
                   <p className="text-[13px] font-medium text-zinc-900">Upload video</p>
@@ -259,12 +260,12 @@ export function UploadView({
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-zinc-500">
-                            <VideoIcon />
+                            <Video size={18} strokeWidth={1.5} aria-hidden />
                           </div>
                         )}
                         <span className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition-opacity group-hover:opacity-100">
                           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-zinc-900">
-                            <ExpandIcon />
+                            <Maximize2 size={14} strokeWidth={1.75} aria-hidden />
                           </span>
                         </span>
                       </div>
@@ -310,84 +311,11 @@ export function UploadView({
   );
 }
 
-function DocumentIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M14 2v6h6"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M9 13h6M9 17h4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function VideoIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 7h8a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ExpandIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      className={className}
-    >
-      <path
-        d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M18 6L6 18M6 6l12 12"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function VideoStatusIcon({ status }: { status: "loading" | "done" | "error" | "ready" }) {
   if (status === "loading") {
     return (
       <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-label="Analyzing">
-        <SpinnerIcon />
+        <Loader2 size={16} strokeWidth={2} className="animate-spin text-zinc-400" aria-hidden />
       </span>
     );
   }
@@ -395,7 +323,7 @@ function VideoStatusIcon({ status }: { status: "loading" | "done" | "error" | "r
   if (status === "done") {
     return (
       <span className="flex h-5 w-5 shrink-0 items-center justify-center text-emerald-600" aria-label="Complete">
-        <CheckIcon />
+        <Check size={16} strokeWidth={2} aria-hidden />
       </span>
     );
   }
@@ -403,59 +331,18 @@ function VideoStatusIcon({ status }: { status: "loading" | "done" | "error" | "r
   if (status === "error") {
     return (
       <span className="flex h-5 w-5 shrink-0 items-center justify-center text-red-500" aria-label="Failed">
-        <ErrorIcon />
+        <X size={16} strokeWidth={2} aria-hidden />
       </span>
     );
   }
 
-  return <ExpandIcon className="shrink-0 text-zinc-400 group-hover:text-zinc-600" />;
-}
-
-function SpinnerIcon() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
+    <Maximize2
+      size={14}
+      strokeWidth={1.75}
+      className="shrink-0 text-zinc-400 group-hover:text-zinc-600"
       aria-hidden
-      className="animate-spin text-zinc-400"
-    >
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" opacity="0.25" />
-      <path
-        d="M12 2a10 10 0 0110 10"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M20 6L9 17l-5-5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ErrorIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M18 6L6 18M6 6l12 12"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
+    />
   );
 }
 
@@ -483,7 +370,7 @@ function VideoFullscreenOverlay({
           className="focus-ring flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
           aria-label="Close video"
         >
-          <CloseIcon />
+          <X size={18} strokeWidth={1.75} aria-hidden />
         </button>
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-4">

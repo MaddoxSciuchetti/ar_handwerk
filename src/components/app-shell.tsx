@@ -2,6 +2,20 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
+import {
+  ArrowLeft,
+  Calendar,
+  Glasses,
+  LayoutDashboard,
+  ListTodo,
+  Mail,
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Truck,
+  Upload,
+  User,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { GmailView } from "@/components/gmail-view";
 import { CalendarView } from "@/components/calendar-view";
@@ -32,184 +46,24 @@ type SessionUser = {
   name: string;
 };
 
-function DeviceIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M2 12a4 4 0 014-4h2a4 4 0 014 4 4 4 0 014-4h2a4 4 0 014 4"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-      <path d="M6 12h12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M7 17v1a2 2 0 002 2h6a2 2 0 002-2v-1M12 13V4m0 0L8 8m4-4 4 4"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function TasksIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function MailIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4 6h16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path
-        d="M4 8l8 5 8-5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M7 3v3M17 3v3M4 8h16M6 6h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ProfileIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M20 21a8 8 0 00-16 0M12 11a4 4 0 100-8 4 4 0 000 8z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function WorkspaceIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 22v-5M9 17h6M8 7V2m8 5V2M5 7h14a2 2 0 012 2v4a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function MessagingIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function SuppliersIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M3 7h13v10H3zM16 10h4l1 3v4h-5V10zM7 19a2 2 0 100-4 2 2 0 000 4zM18 19a2 2 0 100-4 2 2 0 000 4z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function BackIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CollapseIcon({ collapsed }: { collapsed: boolean }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      {collapsed ? (
-        <>
-          <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="1.75" />
-          <path d="M9 3v18M14 12H19M16.5 9.5L19 12l-2.5 2.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      ) : (
-        <>
-          <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="1.75" />
-          <path d="M9 3v18M14 12H10M11.5 9.5L9 12l2.5 2.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      )}
-    </svg>
-  );
-}
+const NAV_ICON = { size: 14, strokeWidth: 1.75, "aria-hidden": true as const };
 
 const CORE_NAV: { id: MainTab; label: string; icon: ReactNode }[] = [
-  { id: "upload", label: "Upload", icon: <UploadIcon /> },
-  { id: "device", label: "Device", icon: <DeviceIcon /> },
-  { id: "tasks", label: "Tasks", icon: <TasksIcon /> },
-  { id: "calendar", label: "Calendar", icon: <CalendarIcon /> },
-  { id: "mail", label: "Mail", icon: <MailIcon /> },
+  { id: "upload", label: "Upload", icon: <Upload {...NAV_ICON} /> },
+  { id: "device", label: "Device", icon: <Glasses {...NAV_ICON} /> },
+  { id: "tasks", label: "Tasks", icon: <ListTodo {...NAV_ICON} /> },
+  { id: "calendar", label: "Calendar", icon: <Calendar {...NAV_ICON} /> },
+  { id: "mail", label: "Mail", icon: <Mail {...NAV_ICON} /> },
 ];
 
 const INTEGRATIONS_NAV: { id: MainTab; label: string; icon: ReactNode }[] = [
-  { id: "workspace", label: "Workspace", icon: <WorkspaceIcon /> },
-  { id: "messaging", label: "Messaging", icon: <MessagingIcon /> },
-  { id: "suppliers", label: "Suppliers", icon: <SuppliersIcon /> },
+  { id: "workspace", label: "Workspace", icon: <LayoutDashboard {...NAV_ICON} /> },
+  { id: "messaging", label: "Messaging", icon: <MessageSquare {...NAV_ICON} /> },
+  { id: "suppliers", label: "Suppliers", icon: <Truck {...NAV_ICON} /> },
 ];
 
 const SETTINGS_NAV: { id: SettingsSection; label: string; icon: ReactNode }[] = [
-  { id: "profile", label: "Profile", icon: <ProfileIcon /> },
+  { id: "profile", label: "Profile", icon: <User {...NAV_ICON} /> },
 ];
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
@@ -379,7 +233,7 @@ export function AppShell() {
                 collapsed ? "justify-center p-1.5" : "gap-2 px-2 py-1.5"
               }`}
             >
-              <BackIcon />
+              <ArrowLeft {...NAV_ICON} />
               {!collapsed && <span className="text-[12px] font-medium">Home</span>}
             </button>
           ) : (
@@ -517,7 +371,11 @@ export function AppShell() {
               collapsed ? "justify-center p-1.5" : "gap-2 px-2 py-1.5"
             } text-zinc-400 hover:text-zinc-600`}
           >
-            <CollapseIcon collapsed={collapsed} />
+            {collapsed ? (
+              <PanelLeftOpen {...NAV_ICON} />
+            ) : (
+              <PanelLeftClose {...NAV_ICON} />
+            )}
             {!collapsed && <span className="text-[11px]">Collapse</span>}
           </button>
         </div>
