@@ -99,6 +99,7 @@ type PioneerEntitySpan = { text?: string; confidence?: number; start?: number; e
 type PioneerEntities = {
   task?: PioneerEntitySpan[];
   problem?: PioneerEntitySpan[];
+  proposed_action?: PioneerEntitySpan[];
   people?: PioneerEntitySpan[];
   location?: PioneerEntitySpan[];
   deadline?: PioneerEntitySpan[];
@@ -108,6 +109,55 @@ type PioneerData = {
   service_task?: PioneerServiceTask[];
   entities?: PioneerEntities;
 };
+
+function normalizePioneerPayload(data: unknown): PioneerData {
+  if (typeof data === "string") {
+    try {
+      return normalizePioneerPayload(JSON.parse(data));
+    } catch {
+      return {};
+    }
+  }
+
+  if (!data || typeof data !== "object") return {};
+
+  const record = data as Record<string, unknown>;
+
+  if (
+    "data" in record &&
+    record.data &&
+    typeof record.data === "object" &&
+    !("service_task" in record) &&
+    !("entities" in record)
+  ) {
+    return normalizePioneerPayload(record.data);
+  }
+
+  let serviceTask = record.service_task;
+  if (serviceTask && !Array.isArray(serviceTask)) {
+    serviceTask = [serviceTask];
+  }
+
+  return {
+    service_task: serviceTask as PioneerServiceTask[] | undefined,
+    entities: record.entities as PioneerEntities | undefined,
+  };
+}
+
+export function hasPioneerTaskSignals(data: unknown): boolean {
+  const parsed = normalizePioneerPayload(data);
+  if (Array.isArray(parsed.service_task) && parsed.service_task.length > 0) {
+    return true;
+  }
+
+  const entities = parsed.entities;
+  if (!entities) return false;
+
+  return Boolean(
+    entities.task?.some((span) => span.text?.trim()) ||
+      entities.proposed_action?.some((span) => span.text?.trim()),
+  );
+}
 
 function fieldText(field: EntityField | undefined): string | undefined {
   if (!field) return undefined;
@@ -181,9 +231,11 @@ function parseServiceTaskRows(items: PioneerServiceTask[]): Task[] {
 function parseEntityFallback(entities: PioneerEntities | undefined): Task[] {
   const batchId = Date.now();
   const taskSpans = (entities?.task ?? []).filter((span) => span.text?.trim());
-  if (taskSpans.length === 0) return [];
+  const actionSpans = (entities?.proposed_action ?? []).filter((span) => span.text?.trim());
+  const anchors = taskSpans.length > 0 ? taskSpans : actionSpans;
+  if (anchors.length === 0) return [];
 
-  return taskSpans.map((taskSpan, index) => ({
+  return anchors.map((taskSpan, index) => ({
     id: `pioneer-entity-${batchId}-${index}`,
     title: normalizeTaskTitle(taskSpan.text!.trim()),
     problem: normalizeEntityText(nearestEntityText(taskSpan, entities?.problem)),
@@ -196,10 +248,10 @@ function parseEntityFallback(entities: PioneerEntities | undefined): Task[] {
 }
 
 export function parsePioneerTasks(data: unknown): Task[] {
-  const parsed = data as PioneerData;
-  const fromStructures = parseServiceTaskRows(parsed?.service_task ?? []);
+  const parsed = normalizePioneerPayload(data);
+  const fromStructures = parseServiceTaskRows(parsed.service_task ?? []);
   if (fromStructures.length > 0) return fromStructures;
-  return parseEntityFallback(parsed?.entities);
+  return parseEntityFallback(parsed.entities);
 }
 
 export const SAMPLE_TASKS: Task[] = [

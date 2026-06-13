@@ -1,22 +1,22 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Calendar,
   Glasses,
   LayoutDashboard,
-  ListTodo,
-  Mail,
-  MessageSquare,
+  MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
+  Send,
+  Ticket,
   Truck,
   Upload,
   User,
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { GmailView } from "@/components/gmail-view";
 import { CalendarView } from "@/components/calendar-view";
 import { UploadView } from "@/components/upload-view";
@@ -51,14 +51,14 @@ const NAV_ICON = { size: 14, strokeWidth: 1.75, "aria-hidden": true as const };
 const CORE_NAV: { id: MainTab; label: string; icon: ReactNode }[] = [
   { id: "upload", label: "Upload", icon: <Upload {...NAV_ICON} /> },
   { id: "device", label: "Device", icon: <Glasses {...NAV_ICON} /> },
-  { id: "tasks", label: "Tasks", icon: <ListTodo {...NAV_ICON} /> },
+  { id: "tasks", label: "Tasks", icon: <Ticket {...NAV_ICON} /> },
   { id: "calendar", label: "Calendar", icon: <Calendar {...NAV_ICON} /> },
-  { id: "mail", label: "Mail", icon: <Mail {...NAV_ICON} /> },
+  { id: "mail", label: "Mail", icon: <Send {...NAV_ICON} /> },
 ];
 
 const INTEGRATIONS_NAV: { id: MainTab; label: string; icon: ReactNode }[] = [
   { id: "workspace", label: "Workspace", icon: <LayoutDashboard {...NAV_ICON} /> },
-  { id: "messaging", label: "Messaging", icon: <MessageSquare {...NAV_ICON} /> },
+  { id: "messaging", label: "Messaging", icon: <MessageCircle {...NAV_ICON} /> },
   { id: "suppliers", label: "Suppliers", icon: <Truck {...NAV_ICON} /> },
 ];
 
@@ -68,64 +68,58 @@ const SETTINGS_NAV: { id: SettingsSection; label: string; icon: ReactNode }[] = 
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 
+const MAIN_TABS: MainTab[] = [
+  "upload",
+  "device",
+  "tasks",
+  "mail",
+  "calendar",
+  "workspace",
+  "messaging",
+  "suppliers",
+];
+
+function isMainTab(value: string): value is MainTab {
+  return MAIN_TABS.includes(value as MainTab);
+}
+
+function resolveTab(params: Pick<URLSearchParams, "get">): Tab {
+  const tab = params.get("tab");
+  const settings = params.get("settings");
+
+  if (tab === "settings") return "settings";
+  if (tab && isMainTab(tab)) return tab;
+  if (settings === "profile") return "settings";
+  if (settings === "integrations") return "workspace";
+  if (settings === "workspace" || settings === "messaging" || settings === "suppliers") {
+    return settings;
+  }
+  return "upload";
+}
+
+function buildTabHref(tab: Tab, settingsSection: SettingsSection = "profile"): string {
+  if (tab === "settings") {
+    return `/?tab=settings&settings=${settingsSection}`;
+  }
+  return `/?tab=${tab}`;
+}
+
 function readSidebarCollapsed(): boolean {
   if (typeof window === "undefined") return false;
   return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
 }
 
 export function AppShell() {
-  const searchParams = useSearchParams();
-  const [tab, setTab] = useState<Tab>("upload");
-  const [settingsSection, setSettingsSection] = useState<SettingsSection>("profile");
-  const [returnTab, setReturnTab] = useState<MainTab>("upload");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allClear, setAllClear] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    setCollapsed(readSidebarCollapsed());
-  }, []);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [googleConnected, setGoogleConnected] = useState(false);
 
-  const googleConnectedParam = searchParams.get("google_connected");
-  const googleErrorParam = searchParams.get("google_error");
-
   useEffect(() => {
-    const requestedTab = searchParams.get("tab");
-    const requestedSettings = searchParams.get("settings");
-
-    if (requestedTab === "settings") {
-      setTab("settings");
-      if (requestedSettings === "profile") {
-        setSettingsSection("profile");
-      }
-    } else if (
-      requestedTab === "tasks" ||
-      requestedTab === "upload" ||
-      requestedTab === "device" ||
-      requestedTab === "mail" ||
-      requestedTab === "calendar" ||
-      requestedTab === "workspace" ||
-      requestedTab === "messaging" ||
-      requestedTab === "suppliers"
-    ) {
-      setTab(requestedTab);
-    } else if (requestedSettings === "integrations") {
-      setTab("workspace");
-    } else if (
-      requestedSettings === "workspace" ||
-      requestedSettings === "messaging" ||
-      requestedSettings === "suppliers"
-    ) {
-      setTab(requestedSettings);
-    }
-
-    if (requestedSettings === "profile") {
-      setSettingsSection("profile");
-    }
-  }, [searchParams]);
+    setCollapsed(readSidebarCollapsed());
+  }, []);
 
   useEffect(() => {
     async function loadSession() {
@@ -153,42 +147,26 @@ export function AppShell() {
 
   useEffect(() => {
     void refreshGoogleStatus();
-  }, [refreshGoogleStatus, googleConnectedParam]);
+  }, [refreshGoogleStatus]);
 
   const handleAnalysisComplete = useCallback((newTasks: Task[]) => {
-    setAllClear(newTasks.length === 0);
-    if (newTasks.length > 0) {
-      setTasks((prev) => [...newTasks, ...prev]);
-    }
-    setTab("tasks");
+    setTasks((prev) => {
+      const next = newTasks.length > 0 ? [...newTasks, ...prev] : prev;
+      setAllClear(next.length === 0);
+      return next;
+    });
   }, []);
 
   const handleTaskUpdate = useCallback((updated: Task) => {
     setTasks((prev) => prev.map((task) => (task.id === updated.id ? updated : task)));
   }, []);
 
-  const handleOpenSettings = useCallback(() => {
-    setReturnTab(tab === "settings" ? returnTab : tab);
-    setSettingsSection("profile");
-    setTab("settings");
-  }, [tab, returnTab]);
-
-  const toggleSidebar = useCallback(() => {
-    setCollapsed((current) => {
-      const next = !current;
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
-      return next;
-    });
-  }, []);
-
-  const handleExitSettings = useCallback(() => {
-    setTab(returnTab);
-  }, [returnTab]);
-
   const handleSignOut = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
     setGoogleConnected(false);
+    setTasks([]);
+    setAllClear(false);
   }, []);
 
   if (authLoading) {
@@ -202,6 +180,141 @@ export function AppShell() {
   if (!user) {
     return <LoginView onLogin={setUser} />;
   }
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center bg-[var(--shell-bg)] text-[13px] text-zinc-500">
+          Loading…
+        </div>
+      }
+    >
+      <AppShellLayout
+        user={user}
+        tasks={tasks}
+        allClear={allClear}
+        collapsed={collapsed}
+        googleConnected={googleConnected}
+        onCollapsedChange={setCollapsed}
+        onAnalysisComplete={handleAnalysisComplete}
+        onTaskUpdate={handleTaskUpdate}
+        onSignOut={() => void handleSignOut()}
+        onGoogleStatusRefresh={refreshGoogleStatus}
+      />
+    </Suspense>
+  );
+}
+
+type AppShellLayoutProps = {
+  user: SessionUser;
+  tasks: Task[];
+  allClear: boolean;
+  collapsed: boolean;
+  googleConnected: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+  onAnalysisComplete: (tasks: Task[]) => void;
+  onTaskUpdate: (task: Task) => void;
+  onSignOut: () => void;
+  onGoogleStatusRefresh: () => void;
+};
+
+function AppShellLayout({
+  user,
+  tasks,
+  allClear,
+  collapsed,
+  googleConnected,
+  onCollapsedChange,
+  onAnalysisComplete,
+  onTaskUpdate,
+  onSignOut,
+  onGoogleStatusRefresh,
+}: AppShellLayoutProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = useMemo(() => resolveTab(searchParams), [searchParams]);
+  const settingsSection: SettingsSection = "profile";
+  const [returnTab, setReturnTab] = useState<MainTab>("upload");
+
+  const googleConnectedParam = searchParams.get("google_connected");
+  const googleErrorParam = searchParams.get("google_error");
+
+  const navigateToTab = useCallback(
+    (next: Tab, options?: { settings?: SettingsSection; keepOAuth?: boolean }) => {
+      const params = new URLSearchParams(
+        buildTabHref(next, options?.settings ?? "profile").slice(2),
+      );
+
+      if (options?.keepOAuth) {
+        if (searchParams.get("google_connected")) {
+          params.set("google_connected", "1");
+        }
+        const googleError = searchParams.get("google_error");
+        if (googleError) {
+          params.set("google_error", googleError);
+        }
+      }
+
+      router.replace(`/?${params.toString()}`);
+    },
+    [router, searchParams],
+  );
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    const settingsParam = searchParams.get("settings");
+
+    if (settingsParam === "integrations" && tabParam !== "workspace") {
+      navigateToTab("workspace", { keepOAuth: true });
+      return;
+    }
+
+    if (settingsParam === "profile" && tabParam !== "settings") {
+      if (tabParam && isMainTab(tabParam)) {
+        navigateToTab(tabParam);
+        return;
+      }
+      navigateToTab("settings", { settings: "profile" });
+      return;
+    }
+
+    if (
+      (settingsParam === "workspace" ||
+        settingsParam === "messaging" ||
+        settingsParam === "suppliers") &&
+      tabParam !== settingsParam
+    ) {
+      navigateToTab(settingsParam, { keepOAuth: true });
+    }
+  }, [navigateToTab, searchParams]);
+
+  useEffect(() => {
+    onGoogleStatusRefresh();
+  }, [googleConnectedParam, onGoogleStatusRefresh]);
+
+  const handlePipelineComplete = useCallback(
+    (newTasks: Task[]) => {
+      onAnalysisComplete(newTasks);
+      navigateToTab("tasks");
+    },
+    [navigateToTab, onAnalysisComplete],
+  );
+
+  const handleOpenSettings = useCallback(() => {
+    if (tab !== "settings" && isMainTab(tab)) {
+      setReturnTab(tab);
+    }
+    navigateToTab("settings", { settings: "profile" });
+  }, [navigateToTab, tab]);
+
+  const toggleSidebar = useCallback(() => {
+    onCollapsedChange(!collapsed);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(!collapsed));
+  }, [collapsed, onCollapsedChange]);
+
+  const handleExitSettings = useCallback(() => {
+    navigateToTab(returnTab);
+  }, [navigateToTab, returnTab]);
 
   const profile = profileUserFromSession(user);
 
@@ -241,7 +354,7 @@ export function AppShell() {
               collapsed={collapsed}
               user={profile}
               onOpenSettings={handleOpenSettings}
-              onSignOut={() => void handleSignOut()}
+              onSignOut={onSignOut}
             />
           )}
         </div>
@@ -266,7 +379,7 @@ export function AppShell() {
                     title={collapsed ? item.label : undefined}
                     aria-label={item.label}
                     aria-current={active ? "page" : undefined}
-                    onClick={() => setSettingsSection(item.id)}
+                    onClick={() => navigateToTab("settings", { settings: item.id })}
                     className={`sidebar-nav-item btn-ghost focus-ring ${
                       collapsed ? "justify-center p-1.5" : "gap-2 px-2 py-1.5"
                     }`}
@@ -298,7 +411,7 @@ export function AppShell() {
                     title={collapsed ? item.label : undefined}
                     aria-label={item.label}
                     aria-current={active ? "page" : undefined}
-                    onClick={() => setTab(item.id)}
+                    onClick={() => navigateToTab(item.id)}
                     className={`sidebar-nav-item btn-ghost focus-ring relative ${
                       collapsed ? "justify-center p-1.5" : "gap-2 px-2 py-1.5"
                     }`}
@@ -344,7 +457,7 @@ export function AppShell() {
                     title={collapsed ? item.label : undefined}
                     aria-label={item.label}
                     aria-current={active ? "page" : undefined}
-                    onClick={() => setTab(item.id)}
+                    onClick={() => navigateToTab(item.id)}
                     className={`sidebar-nav-item btn-ghost focus-ring ${
                       collapsed ? "justify-center p-1.5" : "gap-2 px-2 py-1.5"
                     }`}
@@ -384,15 +497,15 @@ export function AppShell() {
       <main className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl bg-white shadow-[0_0_0_0.5px_rgba(0,0,0,0.04),0_1px_3px_rgba(0,0,0,0.04)]">
         <div className="h-full overflow-y-auto overscroll-contain px-4 py-4 md:px-5 md:py-5">
         {tab === "upload" ? (
-          <UploadView userName={user.name} onAnalysisComplete={handleAnalysisComplete} />
+          <UploadView userName={user.name} onAnalysisComplete={handlePipelineComplete} />
         ) : tab === "device" ? (
-          <DeviceView onAnalysisComplete={handleAnalysisComplete} />
+          <DeviceView onAnalysisComplete={handlePipelineComplete} />
         ) : tab === "tasks" ? (
           <TasksView
             tasks={tasks}
             allClear={allClear}
             googleConnected={googleConnected}
-            onTaskUpdate={handleTaskUpdate}
+            onTaskUpdate={onTaskUpdate}
           />
         ) : tab === "mail" ? (
           <GmailView googleConnected={googleConnected} />
@@ -412,7 +525,7 @@ export function AppShell() {
           <ProfileSettingsView
             user={profile}
             email={user.email}
-            onSignOut={() => void handleSignOut()}
+            onSignOut={onSignOut}
           />
         )}
         </div>

@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, FileVideo, Loader2, Maximize2, Video, X } from "lucide-react";
-import { parsePioneerTasks } from "@/lib/tasks";
-import type { Task } from "@/lib/tasks";
+import { parsePioneerTasks, hasPioneerTaskSignals, type Task } from "@/lib/tasks";
 
 type StageStatus = "idle" | "active" | "done" | "error";
 
@@ -17,6 +16,7 @@ export function UploadView({
   onAnalysisComplete: (tasks: Task[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const pipelineRunRef = useRef(0);
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [transcribeStatus, setTranscribeStatus] = useState<StageStatus>("idle");
@@ -91,7 +91,13 @@ export function UploadView({
   }, []);
 
   const runPipeline = useCallback(async (videoFile: File) => {
+    const runId = ++pipelineRunRef.current;
     reset();
+
+    const finish = (tasks: Task[]) => {
+      if (runId !== pipelineRunRef.current) return;
+      onAnalysisComplete(tasks);
+    };
 
     void uploadToR2(videoFile).catch((err) => {
       console.error("R2 upload failed:", err);
@@ -132,8 +138,16 @@ export function UploadView({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Analysis failed");
+      if (runId !== pipelineRunRef.current) return;
 
-      const tasks = parsePioneerTasks(json.data);
+      const pioneerData = json.data ?? json;
+      const tasks = parsePioneerTasks(pioneerData);
+      if (tasks.length === 0 && hasPioneerTaskSignals(pioneerData)) {
+        setPioneerStatus("error");
+        setError("Tasks were detected but could not be parsed. Please try uploading again.");
+        return;
+      }
+
       setPioneerStatus("done");
 
       setPlanStatus("active");
@@ -145,17 +159,23 @@ export function UploadView({
         });
         const planJson = await planRes.json();
         if (!planRes.ok) throw new Error(planJson.error ?? "Action planning failed");
+        if (runId !== pipelineRunRef.current) return;
 
-        const plannedTasks = (planJson.tasks ?? tasks) as Task[];
+        const plannedTasks = (
+          Array.isArray(planJson.tasks) && planJson.tasks.length > 0
+            ? planJson.tasks
+            : tasks
+        ) as Task[];
         setTasksCreated(plannedTasks.length);
         setPlanStatus("done");
         setDone(true);
-        onAnalysisComplete(plannedTasks);
+        finish(plannedTasks);
       } catch (planErr) {
+        if (runId !== pipelineRunRef.current) return;
         setPlanStatus("error");
         setTasksCreated(tasks.length);
         setDone(true);
-        onAnalysisComplete(tasks);
+        finish(tasks);
         setError(
           planErr instanceof Error
             ? `${planErr.message} — tasks created without planned actions.`

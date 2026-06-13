@@ -24,7 +24,7 @@ export async function analyzeVideoFile(
   }
 
   const pioneerResult = await extractServiceTasks(transcribeResult.transcript);
-  const tasks = parsePioneerTasks(pioneerResult);
+  const tasks = parsePioneerTasks(pioneerResult.data);
 
   const defaultEmail = await getConnectedGmailAddress(userId).catch(() => null);
   let plannedTasks = tasks;

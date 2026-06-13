@@ -15,6 +15,7 @@ import {
   type IntegrationPreferences,
 } from "@/lib/integrations/catalog";
 import { IntegrationToggle } from "@/components/integration-toggle";
+import { CenteredPageContent } from "@/components/centered-page-content";
 
 type IntegrationsSettingsProps = {
   title: string;
@@ -349,7 +350,7 @@ export function IntegrationsSettings({
   );
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-3">
+    <CenteredPageContent>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="page-title">{title}</h1>
@@ -447,7 +448,7 @@ export function IntegrationsSettings({
           </p>
         ) : null}
       </section>
-    </div>
+    </CenteredPageContent>
   );
 }
 

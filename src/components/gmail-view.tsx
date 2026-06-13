@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { CenteredPageContent } from "@/components/centered-page-content";
 import type {
   ComposeDraft,
   GmailListItem,
@@ -197,7 +198,7 @@ export function GmailView({ googleConnected }: GmailViewProps) {
 
   if (!googleConnected) {
     return (
-      <div className="flex max-w-2xl flex-col gap-3">
+      <CenteredPageContent>
         <h1 className="page-title">Mail</h1>
         <div className="widget-card flex flex-col gap-2">
           <p className="text-[12px] font-medium text-zinc-700">Connect Google to use Mail</p>
@@ -212,7 +213,7 @@ export function GmailView({ googleConnected }: GmailViewProps) {
             Open Workspace
           </a>
         </div>
-      </div>
+      </CenteredPageContent>
     );
   }
 
