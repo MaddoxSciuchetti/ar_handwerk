@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActionCardContent } from "@/components/action-cards/action-card-content";
-import { ActionCardStack } from "@/components/action-card-stack";
+import { SwipeableCard } from "@/components/swipeable-card";
 import type { ProposedAction } from "@/lib/actions/types";
 import type { TaskActionResult } from "@/lib/integrations/types";
 import type { Task } from "@/lib/tasks";
@@ -11,6 +11,7 @@ type ActionFlowProps = {
   task: Task;
   googleConnected?: boolean;
   keyboardEnabled?: boolean;
+  variant?: "default" | "focus";
   onTaskUpdate?: (task: Task) => void;
 };
 
@@ -26,15 +27,35 @@ function patchAction(task: Task, actionId: string, patch: Partial<ProposedAction
   );
 }
 
+function ActionStepShell({
+  isFocus,
+  className = "",
+  children,
+}: {
+  isFocus: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (isFocus) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return <div className={`action-step-card flex min-h-0 flex-col p-4 ${className}`.trim()}>{children}</div>;
+}
+
 export function ActionFlow({
   task,
   googleConnected,
   keyboardEnabled,
+  variant = "default",
   onTaskUpdate,
 }: ActionFlowProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [priceReady, setPriceReady] = useState(false);
+  const [emailDraft, setEmailDraft] = useState(
+    () => task.proposedActions?.find((a) => a.type === "email")?.emailDraft,
+  );
   const [calendarDraft, setCalendarDraft] = useState(
     () => task.proposedActions?.find((a) => a.type === "calendar")?.calendarDraft,
   );
@@ -81,7 +102,7 @@ export function ActionFlow({
 
     try {
       if (current.type === "email" && current.emailDraft) {
-        const draft = current.emailDraft;
+        const draft = emailDraft ?? current.emailDraft;
         const res = await fetch("/api/tasks/actions/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -168,6 +189,7 @@ export function ActionFlow({
     advance,
     calendarDraft,
     current,
+    emailDraft,
     onTaskUpdate,
     priceReady,
     step,
@@ -185,6 +207,117 @@ export function ActionFlow({
         ? "Send"
         : "Accept";
   const acceptDisabled = loading || (needsGoogle && !priceReady);
+  const isFocus = variant === "focus";
+  const canSwipe = isFocus && !loading;
+
+  const actionBody = (
+    <>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <p className="mb-1 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+          {step + 1} of {actions.length}
+        </p>
+        <h4 className="mb-2 shrink-0 text-[14px] font-semibold leading-snug text-zinc-900">
+          {current?.title}
+        </h4>
+        {current?.reasoning ? (
+          <p className="mb-3 shrink-0 text-[11px] leading-relaxed text-zinc-500">{current.reasoning}</p>
+        ) : null}
+        {current ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <ActionCardContent
+              action={current}
+              googleConnected={googleConnected}
+              emailDraft={emailDraft ?? current.emailDraft}
+              onEmailDraftChange={setEmailDraft}
+              calendarDraft={calendarDraft ?? current.calendarDraft}
+              onCalendarDraftChange={setCalendarDraft}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {error ? <p className="mt-2 shrink-0 text-[11px] text-red-600">{error}</p> : null}
+
+      <div
+        className={`mt-3 shrink-0 ${
+          isFocus ? "flex items-center justify-center gap-3 pt-1" : "grid grid-cols-3 gap-2"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={reject}
+          disabled={loading}
+          className={
+            isFocus
+              ? "flex h-14 w-14 items-center justify-center rounded-full border-2 border-red-200 bg-white text-red-500 shadow-sm transition-colors hover:border-red-300 hover:bg-red-50 disabled:opacity-50"
+              : "flex items-center justify-center gap-2 rounded-full bg-red-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+          }
+          title="Reject"
+          aria-label="Reject"
+        >
+          {isFocus ? (
+            <span className="text-xl leading-none" aria-hidden>
+              ✕
+            </span>
+          ) : (
+            <>
+              Reject
+              <kbd className="rounded border border-white/25 bg-white/15 px-1.5 py-0.5 text-[10px] font-normal leading-none">
+                Q
+              </kbd>
+            </>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={skip}
+          disabled={loading}
+          title="Skip this action and move to the next one"
+          className={
+            isFocus
+              ? "flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200 bg-white text-[11px] font-semibold text-zinc-500 shadow-sm transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
+              : "focus-ring rounded-full border border-zinc-200 bg-white px-3 py-2.5 text-[11px] font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
+          }
+          aria-label="Skip"
+        >
+          {isFocus ? "Skip" : "Skip"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void accept()}
+          disabled={acceptDisabled}
+          className={
+            isFocus
+              ? "flex h-14 w-14 items-center justify-center rounded-full border-2 border-emerald-200 bg-white text-emerald-600 shadow-sm transition-colors hover:border-emerald-300 hover:bg-emerald-50 disabled:opacity-50"
+              : "flex items-center justify-center gap-2 rounded-full bg-emerald-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+          }
+          title={acceptLabel}
+          aria-label={acceptLabel}
+        >
+          {loading ? (
+            <span className="text-[10px] font-semibold">…</span>
+          ) : isFocus ? (
+            <span className="text-xl leading-none" aria-hidden>
+              ✓
+            </span>
+          ) : (
+            <>
+              {acceptLabel}
+              <kbd className="rounded border border-white/25 bg-white/15 px-1.5 py-0.5 text-[10px] font-normal leading-none">
+                Enter
+              </kbd>
+            </>
+          )}
+        </button>
+      </div>
+
+      {isFocus ? (
+        <p className="mt-2 shrink-0 text-center text-[10px] text-zinc-400">
+          Drag left to reject · drag right to accept
+        </p>
+      ) : null}
+    </>
+  );
 
   useEffect(() => {
     if (!keyboardEnabled || done || !current) return;
@@ -212,83 +345,51 @@ export function ActionFlow({
 
   if (actions.length === 0) {
     return (
-      <div className="flex h-full min-h-80 items-center justify-center">
+      <ActionStepShell
+        isFocus={isFocus}
+        className={`items-center justify-center ${isFocus ? "h-full bg-white p-6 pt-10" : "min-h-[20rem]"}`}
+      >
         <p className="text-[11px] text-zinc-400">Planning actions…</p>
-      </div>
+      </ActionStepShell>
     );
   }
 
   if (done) {
     return (
-      <div className="flex h-full min-h-80 items-center justify-center rounded-xl bg-emerald-50">
+      <ActionStepShell
+        isFocus={isFocus}
+        className={`items-center justify-center ${
+          isFocus ? "h-full bg-emerald-50 p-6 pt-10" : "min-h-[20rem] bg-emerald-50"
+        }`}
+      >
         <p className="text-[12px] font-medium text-emerald-700">All actions complete</p>
-      </div>
+      </ActionStepShell>
     );
   }
 
   if (!current) {
-    return <div className="min-h-80 w-full" aria-hidden />;
+    return <div className="min-h-[20rem] w-full" aria-hidden />;
+  }
+
+  if (isFocus) {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-10">
+        <SwipeableCard
+          resetKey={current.id}
+          canSwipeLeft={canSwipe}
+          canSwipeRight={canSwipe && !acceptDisabled}
+          onSwipeLeft={() => reject()}
+          onSwipeRight={() => void accept()}
+        >
+          {actionBody}
+        </SwipeableCard>
+      </div>
+    );
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <ActionCardStack actions={actions} step={step}>
-          <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-            {step + 1} of {actions.length}
-          </p>
-          <h4 className="mb-3 shrink-0 text-[13px] font-semibold text-zinc-900">{current.title}</h4>
-          {current.reasoning ? (
-            <p className="mb-3 shrink-0 text-[11px] text-zinc-500">{current.reasoning}</p>
-          ) : null}
-          <div className="flex min-h-0 flex-1 flex-col">
-            <ActionCardContent
-              action={current}
-              googleConnected={googleConnected}
-              calendarDraft={calendarDraft ?? current.calendarDraft}
-              onCalendarDraftChange={setCalendarDraft}
-            />
-          </div>
-        </ActionCardStack>
-      </div>
-
-      {error ? <p className="shrink-0 text-[11px] text-red-600">{error}</p> : null}
-
-      <div className="grid shrink-0 grid-cols-3 gap-2">
-        <button
-          type="button"
-          onClick={reject}
-          disabled={loading}
-          className="flex items-center justify-center gap-2 rounded-full bg-red-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
-        >
-          Reject
-          <kbd className="rounded border border-white/25 bg-white/15 px-1.5 py-0.5 text-[10px] font-normal leading-none">
-            Q
-          </kbd>
-        </button>
-        <button
-          type="button"
-          onClick={skip}
-          disabled={loading}
-          title="Skip this action and move to the next one"
-          className="focus-ring rounded-full border border-zinc-200 bg-white px-3 py-2.5 text-[11px] font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
-        >
-          Skip
-        </button>
-        <button
-          type="button"
-          onClick={() => void accept()}
-          disabled={acceptDisabled}
-          className="flex items-center justify-center gap-2 rounded-full bg-emerald-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
-        >
-          {loading ? "Working…" : acceptLabel}
-          {!loading ? (
-            <kbd className="rounded border border-white/25 bg-white/15 px-1.5 py-0.5 text-[10px] font-normal leading-none">
-              Enter
-            </kbd>
-          ) : null}
-        </button>
-      </div>
-    </div>
+    <ActionStepShell isFocus={isFocus} className="h-full flex-1">
+      {actionBody}
+    </ActionStepShell>
   );
 }

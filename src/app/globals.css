@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f5f7;
-  --shell-bg: #e6e6eb;
+  --background: #ffffff;
+  --shell-bg: #f5f5f7;
+  --sidebar-bg: #ececef;
   --foreground: #1d1d1f;
   --focus-ring: rgba(0, 0, 0, 0.12);
 
@@ -416,6 +417,23 @@ body {
     0 8px 24px rgba(0, 0, 0, 0.03);
 }
 
+.action-flow-card {
+  background: #ffffff;
+  border-radius: var(--ui-card-radius);
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+.action-step-card {
+  background: #ffffff;
+  border-radius: calc(var(--ui-card-radius) - 2px);
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
 .all-clear-card {
   background: linear-gradient(180deg, rgb(236 253 245) 0%, #ffffff 100%);
   border-radius: var(--ui-card-radius);
@@ -425,26 +443,3 @@ body {
     0 4px 16px rgba(16, 185, 129, 0.06);
 }
 
-.action-card-layer {
-  transition:
-    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 320ms ease,
-    top 320ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 320ms ease;
-}
-
-.action-card-front {
-  animation: action-card-enter 360ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes action-card-enter {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}

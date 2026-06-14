@@ -15,6 +15,12 @@ function fromDatetimeLocalValue(value: string): string {
   return new Date(value).toISOString();
 }
 
+type EmailDraft = {
+  to: string;
+  subject: string;
+  body: string;
+};
+
 type CalendarDraft = {
   summary: string;
   location?: string;
@@ -26,29 +32,25 @@ type CalendarDraft = {
 export function ActionCardContent({
   action,
   googleConnected,
+  emailDraft,
+  onEmailDraftChange,
   calendarDraft,
   onCalendarDraftChange,
 }: {
   action: ProposedAction;
   googleConnected?: boolean;
+  emailDraft?: EmailDraft;
+  onEmailDraftChange?: (draft: EmailDraft) => void;
   calendarDraft?: CalendarDraft;
   onCalendarDraftChange?: (draft: CalendarDraft) => void;
 }) {
   if (action.type === "email" && action.emailDraft) {
-    const draft = action.emailDraft;
     return (
-      <div className="flex min-h-0 flex-1 flex-col gap-2">
-        <div className="grid shrink-0 gap-1 text-[11px]">
-          <Row label="To" value={draft.to} />
-          <Row label="Subject" value={draft.subject} />
-        </div>
-        <pre className="min-h-[14rem] flex-1 overflow-auto whitespace-pre-wrap rounded-lg bg-zinc-50 p-2.5 text-[11px] leading-relaxed text-zinc-700">
-          {draft.body}
-        </pre>
-        {!googleConnected ? (
-          <p className="shrink-0 text-[11px] text-amber-700">Connect Google in Settings to send.</p>
-        ) : null}
-      </div>
+      <EmailContent
+        draft={emailDraft ?? action.emailDraft}
+        googleConnected={googleConnected}
+        onDraftChange={onEmailDraftChange}
+      />
     );
   }
 
@@ -111,6 +113,49 @@ export function ActionCardContent({
   return null;
 }
 
+function EmailContent({
+  draft,
+  googleConnected,
+  onDraftChange,
+}: {
+  draft: EmailDraft;
+  googleConnected?: boolean;
+  onDraftChange?: (draft: EmailDraft) => void;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="grid shrink-0 gap-2 text-[11px]">
+        <label className="flex items-center gap-2">
+          <span className="w-14 shrink-0 text-zinc-400">To</span>
+          <input
+            type="email"
+            value={draft.to}
+            onChange={(event) => onDraftChange?.({ ...draft, to: event.target.value })}
+            className="flex-1 rounded border border-black/[0.08] bg-white px-2 py-1 font-medium text-zinc-800 outline-none focus:border-black/15"
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="w-14 shrink-0 text-zinc-400">Subject</span>
+          <input
+            type="text"
+            value={draft.subject}
+            onChange={(event) => onDraftChange?.({ ...draft, subject: event.target.value })}
+            className="flex-1 rounded border border-black/[0.08] bg-white px-2 py-1 font-medium text-zinc-800 outline-none focus:border-black/15"
+          />
+        </label>
+      </div>
+      <textarea
+        value={draft.body}
+        onChange={(event) => onDraftChange?.({ ...draft, body: event.target.value })}
+        className="min-h-[14rem] flex-1 resize-none overflow-auto rounded-lg border border-black/[0.08] bg-white p-2.5 text-[11px] leading-relaxed text-zinc-700 outline-none focus:border-black/15"
+      />
+      {!googleConnected ? (
+        <p className="shrink-0 text-[11px] text-amber-700">Connect Google in Settings to send.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function CalendarContent({
   draft,
   googleConnected,
@@ -156,7 +201,7 @@ function CalendarContent({
             type="datetime-local"
             value={toDatetimeLocalValue(start)}
             onChange={(e) => updateStart(e.target.value)}
-            className="flex-1 rounded border border-zinc-200 bg-white px-2 py-1"
+            className="flex-1 rounded border border-black/[0.08] bg-white px-2 py-1"
           />
         </label>
         <label className="flex items-center gap-2">
@@ -165,7 +210,7 @@ function CalendarContent({
             type="datetime-local"
             value={toDatetimeLocalValue(end)}
             onChange={(e) => updateEnd(e.target.value)}
-            className="flex-1 rounded border border-zinc-200 bg-white px-2 py-1"
+            className="flex-1 rounded border border-black/[0.08] bg-white px-2 py-1"
           />
         </label>
         {draft.location ? <Row label="Location" value={draft.location} /> : null}

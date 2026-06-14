@@ -404,7 +404,7 @@ function AppShellLayout({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 gap-2 bg-[var(--shell-bg)] p-2">
       <aside
-        className={`flex shrink-0 flex-col overflow-hidden rounded-2xl bg-[var(--background)] shadow-[0_0_0_0.5px_rgba(0,0,0,0.04),0_1px_3px_rgba(0,0,0,0.04)] transition-[width] duration-200 ease-out ${
+        className={`flex shrink-0 flex-col overflow-hidden rounded-2xl bg-[var(--sidebar-bg)] shadow-[0_0_0_0.5px_rgba(0,0,0,0.04),0_1px_3px_rgba(0,0,0,0.04)] transition-[width] duration-200 ease-out ${
           collapsed ? "w-[52px]" : "w-44"
         }`}
       >
@@ -571,7 +571,7 @@ function AppShellLayout({
         </div>
       </aside>
 
-      <main className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl bg-white shadow-[0_0_0_0.5px_rgba(0,0,0,0.04),0_1px_3px_rgba(0,0,0,0.04)]">
+      <main className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl bg-white">
         <div className="h-full overflow-y-auto overscroll-contain px-4 py-4 md:px-5 md:py-5">
         {tab === "upload" ? (
           <UploadView userName={user.name} onAnalysisComplete={handlePipelineComplete} />
