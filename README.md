@@ -28,6 +28,18 @@ Built for the Munich Hackathon.
 
 ## How the pipeline works
 
+![AR Handwerk BPMN workflow](public/bpmn.png)
+
+The BPMN diagram above shows the two swimlanes — the **human** (the handyman in the
+field) and the **pipeline** (our automated backend):
+
+1. The handyman captures the job on **Meta Glasses** and the clip is sent in.
+2. **Gemini** transcribes the video and audio into a transcript.
+3. The **fine-tuned Pioneer model** extracts tasks and related entities.
+4. **fal** proposes further action steps.
+5. The human **receives the tasks** and **accepts** them.
+6. The **agent executes the task**, then it is marked **completed**.
+
 ```text
 Video  ──►  Transcript  ──►  Pioneer (extraction)  ──►  fal (action planning)  ──►  Review UI
           (Gemini /              (structured              (email / calendar /
@@ -42,6 +54,21 @@ Video  ──►  Transcript  ──►  Pioneer (extraction)  ──►  fal (a
 
 Each model has a graceful fallback: if no `FAL_API_KEY` is set, a rule-based planner
 drafts the actions; if no transcription provider is set, a stub transcript is used.
+
+## Fine-tuning & evaluating the Pioneer model
+
+The task-extraction step is powered by an agent we **fine-tuned ourselves** with
+Pioneer. Working from the terminal, we trained our first custom extraction agent on
+field-service transcripts so it reliably pulls out the structured entities the app
+relies on — task, problem, proposed action, equipment, material, location, decision,
+deadline, people, and cost.
+
+We then ran a full evaluation pass to measure extraction quality against our labelled
+examples and to compare model iterations before wiring the chosen model into the
+pipeline (`PIONEER_MODEL_ID`).
+
+📊 **Full evaluation results:**
+[Pioneer fine-tuning evaluations (Google Sheets)](https://docs.google.com/spreadsheets/d/1akAdtjWgGrmolL1d2dHo7BLyuqbMsZl7oWJ5zVrbteI/edit?gid=726909771#gid=726909771)
 
 ## Tech stack
 
