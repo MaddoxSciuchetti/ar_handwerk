@@ -43,6 +43,7 @@ export type PurchaseSearchResult = {
 export type TaskIntegrations = {
   calendarEventId?: string;
   calendarLink?: string | null;
+  calendarAccount?: string | null;
   calendarStart?: string;
   calendarEnd?: string;
   calendarSummary?: string;

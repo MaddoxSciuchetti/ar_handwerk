@@ -116,6 +116,7 @@ export function AppShell() {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const tasksRevisionRef = useRef(0);
 
   useEffect(() => {
@@ -162,8 +163,9 @@ export function AppShell() {
     if (!user) return;
     const response = await fetch("/api/integrations/google/status");
     if (response.ok) {
-      const data = (await response.json()) as { connected?: boolean };
+      const data = (await response.json()) as { connected?: boolean; email?: string | null };
       setGoogleConnected(Boolean(data.connected));
+      setGoogleEmail(data.email ?? null);
     }
   }, [user]);
 
@@ -239,6 +241,7 @@ export function AppShell() {
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
     setGoogleConnected(false);
+    setGoogleEmail(null);
     setTasks([]);
     setAllClear(false);
   }, []);
@@ -269,6 +272,7 @@ export function AppShell() {
         allClear={allClear}
         collapsed={collapsed}
         googleConnected={googleConnected}
+        googleEmail={googleEmail}
         onCollapsedChange={setCollapsed}
         onAnalysisComplete={handleAnalysisComplete}
         onTaskUpdate={handleTaskUpdate}
@@ -286,6 +290,7 @@ type AppShellLayoutProps = {
   allClear: boolean;
   collapsed: boolean;
   googleConnected: boolean;
+  googleEmail: string | null;
   onCollapsedChange: (collapsed: boolean) => void;
   onAnalysisComplete: (tasks: Task[], sourceTranscript?: string) => void | Promise<void>;
   onTaskUpdate: (task: Task) => void;
@@ -300,6 +305,7 @@ function AppShellLayout({
   allClear,
   collapsed,
   googleConnected,
+  googleEmail,
   onCollapsedChange,
   onAnalysisComplete,
   onTaskUpdate,
@@ -588,7 +594,7 @@ function AppShellLayout({
         ) : tab === "mail" ? (
           <GmailView googleConnected={googleConnected} />
         ) : tab === "calendar" ? (
-          <CalendarView tasks={tasks} googleConnected={googleConnected} />
+          <CalendarView tasks={tasks} googleConnected={googleConnected} googleEmail={googleEmail} />
         ) : tab === "workspace" ? (
           <SettingsView
             section="workspace"

@@ -124,7 +124,9 @@ export function ActionFlow({
 
       if (current.type === "calendar") {
         const draft = calendarDraft ?? current.calendarDraft;
-        if (!draft) return;
+        if (!draft) {
+          throw new Error("Calendar details are missing for this action");
+        }
 
         const res = await fetch("/api/tasks/actions/calendar", {
           method: "POST",
@@ -148,8 +150,9 @@ export function ActionFlow({
             ...task.integrations,
             calendarEventId: data.calendarEventId,
             calendarLink: data.calendarLink,
-            calendarStart: data.calendarStart ?? draft.start,
-            calendarEnd: data.calendarEnd ?? draft.end,
+            calendarAccount: data.calendarAccount ?? task.integrations?.calendarAccount,
+            calendarStart: data.calendarStart ?? draft.start ?? undefined,
+            calendarEnd: data.calendarEnd ?? draft.end ?? undefined,
             calendarSummary: draft.summary,
             calendarLocation: draft.location,
           },
@@ -206,7 +209,7 @@ export function ActionFlow({
       : current?.type === "email"
         ? "Send"
         : "Accept";
-  const acceptDisabled = loading || (needsGoogle && !priceReady);
+  const acceptDisabled = loading || needsGoogle;
   const isFocus = variant === "focus";
   const canSwipe = isFocus && !loading;
 

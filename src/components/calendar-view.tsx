@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   daysInMonth,
   formatEventTimeRange,
@@ -14,6 +14,7 @@ import type { Task } from "@/lib/tasks";
 type CalendarViewProps = {
   tasks: Task[];
   googleConnected: boolean;
+  googleEmail?: string | null;
 };
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -26,10 +27,41 @@ const EVENT_COLORS = [
   "bg-rose-100 text-rose-800",
 ];
 
-export function CalendarView({ tasks, googleConnected }: CalendarViewProps) {
-  const events = useMemo(() => getCalendarEventsFromTasks(tasks), [tasks]);
+export function CalendarView({ tasks, googleConnected, googleEmail }: CalendarViewProps) {
+  const events = useMemo(
+    () => getCalendarEventsFromTasks(tasks, googleEmail),
+    [googleEmail, tasks],
+  );
   const [viewDate, setViewDate] = useState(() => startOfMonth(new Date()));
   const [selectedDay, setSelectedDay] = useState(() => new Date());
+  const didAutoSelectDay = useRef(false);
+
+  const upcomingEvents = useMemo(() => {
+    const now = Date.now();
+    return events.filter((event) => new Date(event.end).getTime() >= now);
+  }, [events]);
+
+  useEffect(() => {
+    if (didAutoSelectDay.current || events.length === 0) return;
+
+    const today = new Date();
+    const todayKey = today.toDateString();
+    const hasEventsToday = events.some(
+      (event) => new Date(event.start).toDateString() === todayKey,
+    );
+    if (hasEventsToday) {
+      didAutoSelectDay.current = true;
+      return;
+    }
+
+    const nextEvent = upcomingEvents[0] ?? events[0];
+    if (!nextEvent) return;
+
+    const nextDay = new Date(nextEvent.start);
+    setSelectedDay(nextDay);
+    setViewDate(startOfMonth(nextDay));
+    didAutoSelectDay.current = true;
+  }, [events, upcomingEvents]);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -47,11 +79,6 @@ export function CalendarView({ tasks, googleConnected }: CalendarViewProps) {
   }, [events]);
 
   const selectedEvents = eventsByDay.get(selectedDay.toDateString()) ?? [];
-
-  const upcomingEvents = useMemo(() => {
-    const now = Date.now();
-    return events.filter((event) => new Date(event.end).getTime() >= now);
-  }, [events]);
 
   const grid = useMemo(() => {
     const first = new Date(year, month, 1);
@@ -208,7 +235,11 @@ export function CalendarView({ tasks, googleConnected }: CalendarViewProps) {
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
             {selectedEvents.length === 0 ? (
-              <p className="body-sm text-zinc-400">No task events on this day.</p>
+              <p className="body-sm text-zinc-400">
+                {upcomingEvents.length > 0
+                  ? `No task events on this day. See Upcoming below for your next ${upcomingEvents.length === 1 ? "event" : "events"}.`
+                  : "No task events on this day."}
+              </p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {selectedEvents.map((event) => (
@@ -273,15 +304,29 @@ function EventCard({ event, compact }: { event: TaskCalendarEvent; compact?: boo
           ) : null}
           <p className="mt-1 text-[10px] text-zinc-400">From task: {event.taskTitle}</p>
         </div>
-        {event.htmlLink ? (
-          <a
-            href={event.htmlLink}
-            target="_blank"
-            rel="noreferrer"
-            className="shrink-0 text-[10px] font-medium text-blue-600 hover:underline"
-          >
-            Open
-          </a>
+        {event.htmlLink || event.dayLink ? (
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {event.htmlLink ? (
+              <a
+                href={event.htmlLink}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[10px] font-medium text-blue-600 hover:underline"
+              >
+                Open
+              </a>
+            ) : null}
+            {event.dayLink ? (
+              <a
+                href={event.dayLink}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[10px] font-medium text-zinc-500 hover:underline"
+              >
+                Day view
+              </a>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </li>
