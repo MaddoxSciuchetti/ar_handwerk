@@ -1,36 +1,61 @@
 /**
  * Pre-written transcripts for demo videos whose real audio does not mention
- * the tasks we want Pioneer to extract. Each script mirrors a realistic
- * Büro / Baustelle conversation with explicit decisions and deadlines.
+ * the tasks we want Pioneer to extract. Matched to bucket videos by title/key.
  */
 
-export const DEMO_TRANSCRIPTS = [
-  `[00:00] Büroassistentin: Guten Morgen — kurz zum Vaillant-Tagesplan. Morgen früh soll die Wärmepumpe bei Frau Becker in Giesing eingebaut werden, richtig?
+export type DemoVideoScript = {
+  id: string;
+  /** Substrings matched against video title or R2 key (case-insensitive). */
+  patterns: string[];
+  transcript: string;
+};
 
-[00:09] Handwerker: Genau. Vaillant aroTHERM plus, alles schon auf dem Transporter geladen. Termin war für morgen sieben Uhr dreißig.
+export const DEMO_VIDEO_SCRIPTS: DemoVideoScript[] = [
+  {
+    id: "legionellen-pruefung",
+    patterns: ["legionell", "legionellen pr", "legionellenpr"],
+    transcript: `[00:00] Handwerker: Kurz für den Tagesbericht — wir waren heute in der Grundschule Am Harras, Legionellenprüfung an allen Trinkwasserleitungen im Keller und in den Sanitärräumen.
 
-[00:18] Büroassistentin: Stop — Frau Becker hat gerade angerufen. Vaillant meldet Lieferprobleme, die Wärmepumpe kommt erst nächste Woche Mittwoch. Heute und morgen geht gar nichts.
+[00:12] Büroassistentin: Alles dokumentiert?
 
-[00:31] Handwerker: Dann muss der Termin morgen abgesagt werden. Ich fahre nicht mit leeren Händen an.
+[00:14] Handwerker: Ja, Proben sind genommen, Messwerte liegen im Protokoll. Hauptaufgabe jetzt: Rechnung für die Legionellenprüfung an die Schule erstellen und per E-Mail verschicken.
 
-[00:38] Büroassistentin: Richtig. Bitte den Einbautermin morgen bei Frau Becker stornieren und direkt einen neuen Termin für nächste Woche Mittwoch vormittag einplanen — Vaillant aroTHERM plus, komplette Installation.
+[00:26] Büroassistentin: Und Follow-up?
 
-[00:52] Handwerker: Alles klar. Ich storniere morgen und trage den Einbau nächste Woche Mittwoch ein.`,
+[00:28] Handwerker: Genau — wir brauchen einen Kontrolltermin in vier Wochen, nochmal Legionellen nachprüfen ob alles im grünen Bereich ist. Termin mit der Schulleitung einplanen.
 
-  `[00:00] Kollege: Marek, Update aus Schwabing — Viessmann Vitodens 200-W, Fehler F.28, die Zündung fällt ständig aus.
+[00:40] Handwerker: Beim Demontieren sind außerdem drei flexible Verbindungsschläuche an den Waschtischen kaputt gegangen. Die müssen wir bei REISSER nachbestellen — drei Stück Flexschläuche — und einen separaten Montagetermin für den Austausch der Schläuche eintragen.
 
-[00:09] Handwerker: Was siehst du vor Ort?
+[00:55] Büroassistentin: Alles klar — Rechnung raus, Kontrolltermin Legionellen in vier Wochen, Flexschläuche bestellen, Montagetermin für die Schläuche.`,
+  },
+  {
+    id: "leitungsrohrbruch",
+    patterns: ["leitungsrohrbruch", "leitungs austausch", "leitungsaustausch", "rohrbruch"],
+    transcript: `[00:00] Handwerker: Update vom Einsatz Weißenburger Straße — Leitungsrohrbruch im Keller, Kupferrohr an der T-Stückung undicht, Wasserschaden begrenzt.
 
-[00:11] Kollege: Ionisationselektrode ist durch, Flammenwächter sieht verkohlt aus. Kein Ersatzteil auf dem Transporter. REISSER hat die Elektrode laut System erst übermorgen auf Lager.
+[00:10] Büroassistentin: Was ist der Plan?
 
-[00:25] Handwerker: Mieterin ohne Heizung?
+[00:12] Handwerker: Hauptaufgabe Leitungsaustausch — das betroffene Kupferrohr komplett tauschen. Dafür brauchen wir neues Rohrmaterial: Kupferrohr, Pressfittinge, Dichtungen, alles über Bär und Ollenroth.
 
-[00:27] Kollege: Ja, draußen zwei Grad. Ich würde den Elektroheizstrahler aus dem Lager mitbringen und Mittwoch früh um acht Uhr zum Tausch zurückkommen.
+[00:26] Handwerker: Bitte E-Mail an Frau Schneider schicken — Terminbestätigung und Ablauf des Leitungsaustauschs. Und Kalendereinladung an sie für Donnerstag vormittag acht Uhr, Dauer circa drei Stunden.
 
-[00:38] Handwerker: Okay — Entscheidung: Elektroheizstrang als Übergang bis Mittwoch, Ionisationselektrode bei REISSER bestellen, Wiederholungstermin Mittwoch acht Uhr, Viessmann Vitodens Wartung abschließen.
+[00:40] Büroassistentin: Material also bestellen und Termin fix?
 
-[00:52] Kollege: Verstanden. Ich bestelle die Elektrode und trage Mittwoch früh ein.`,
-] as const;
+[00:42] Handwerker: Ja — Material für den Leitungsrohrbruch bestellen, E-Mail raus, Kalendereinladung verschicken, Donnerstag Leitung austauschen.`,
+  },
+];
+
+/** Legacy index fallback when title matching finds no script. */
+export const DEMO_TRANSCRIPTS = DEMO_VIDEO_SCRIPTS.map((script) => script.transcript);
+
+export function matchDemoScript(haystack: string): DemoVideoScript | null {
+  const normalized = haystack.toLowerCase();
+  return (
+    DEMO_VIDEO_SCRIPTS.find((script) =>
+      script.patterns.some((pattern) => normalized.includes(pattern.toLowerCase())),
+    ) ?? null
+  );
+}
 
 export function getDemoTranscript(index: number): string {
   const normalized =

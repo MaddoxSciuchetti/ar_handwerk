@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Glasses, Loader2, Play, Trash2, X } from "lucide-react";
 import { SUPPORTED_DEVICES } from "@/lib/devices/catalog";
 import type { DeviceRecord, DeviceSetupInput, DeviceType, SyncPreference } from "@/lib/devices/types";
 import type { Task } from "@/lib/tasks";
+import { enrichTasksWithPioneerData, parsePioneerTasks } from "@/lib/tasks";
 
 type DeviceVideo = {
   id: string;
@@ -77,7 +78,6 @@ export function DeviceView({
   const [analyzeProgress, setAnalyzeProgress] = useState("");
   const [analyzeStage, setAnalyzeStage] = useState<AnalyzeStage>("transcribe");
   const [demoVideoMode, setDemoVideoMode] = useState(false);
-  const analyzeStageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [tasksCreated, setTasksCreated] = useState(0);
   const [deletingVideoIds, setDeletingVideoIds] = useState<Set<string>>(new Set());
 
@@ -157,34 +157,16 @@ export function DeviceView({
     void loadDemoConfig();
   }, []);
 
-  const clearAnalyzeStageTimer = useCallback(() => {
-    for (const timer of analyzeStageTimersRef.current) {
-      clearTimeout(timer);
-    }
-    analyzeStageTimersRef.current = [];
-  }, []);
-
-  const startAnalyzeStageProgress = useCallback(
+  const setVideoAnalyzeProgress = useCallback(
     (videoTitle: string, videoIndex: number, totalVideos: number) => {
-      clearAnalyzeStageTimer();
-      setAnalyzeStage("transcribe");
       setAnalyzeProgress(
         demoVideoMode
           ? `Video ${videoIndex + 1} of ${totalVideos}: ${videoTitle}`
           : `Analyzing ${videoIndex + 1} of ${totalVideos}: ${videoTitle}`,
       );
-
-      if (!demoVideoMode) return;
-
-      analyzeStageTimersRef.current = [
-        setTimeout(() => setAnalyzeStage("pioneer"), 12_000),
-        setTimeout(() => setAnalyzeStage("plan"), 16_000),
-      ];
     },
-    [clearAnalyzeStageTimer, demoVideoMode],
+    [demoVideoMode],
   );
-
-  useEffect(() => () => clearAnalyzeStageTimer(), [clearAnalyzeStageTimer]);
 
   useEffect(() => {
     if (!activeVideo) return;
@@ -353,12 +335,69 @@ export function DeviceView({
     try {
       for (let index = 0; index < selectedVideos.length; index += 1) {
         const video = selectedVideos[index];
-        startAnalyzeStageProgress(video.title, index, selectedVideos.length);
+        setVideoAnalyzeProgress(video.title, index, selectedVideos.length);
+
+        if (demoVideoMode) {
+          setAnalyzeStage("transcribe");
+
+          const transcriptResponse = await fetch("/api/devices/videos/demo-transcript", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: video.id, demoIndex: index, title: video.title }),
+          });
+          const transcriptData = (await transcriptResponse.json()) as {
+            transcript?: string;
+            error?: string;
+          };
+          if (!transcriptResponse.ok) {
+            throw new Error(transcriptData.error ?? `Failed to transcribe ${video.title}`);
+          }
+
+          const transcript = transcriptData.transcript ?? "";
+          setAnalyzeStage("pioneer");
+
+          const analyzeResponse = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transcript }),
+          });
+          const pioneerData = (await analyzeResponse.json()) as Record<string, unknown> & {
+            error?: string;
+          };
+          if (!analyzeResponse.ok) {
+            throw new Error(pioneerData.error ?? `Failed to analyze ${video.title}`);
+          }
+
+          const tasks = parsePioneerTasks(pioneerData);
+          setAnalyzeStage("plan");
+
+          const planResponse = await fetch("/api/tasks/plan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tasks, transcript }),
+          });
+          const planData = (await planResponse.json()) as {
+            tasks?: Task[];
+            error?: string;
+          };
+          if (!planResponse.ok) {
+            throw new Error(planData.error ?? `Failed to plan actions for ${video.title}`);
+          }
+
+          const plannedTasks = (
+            Array.isArray(planData.tasks) && planData.tasks.length > 0
+              ? enrichTasksWithPioneerData(pioneerData, planData.tasks)
+              : enrichTasksWithPioneerData(pioneerData, tasks)
+          ) as Task[];
+
+          allTasks.push(...plannedTasks);
+          continue;
+        }
 
         const response = await fetch("/api/devices/videos/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: video.id, demoIndex: index }),
+          body: JSON.stringify({ key: video.id, demoIndex: index, title: video.title }),
         });
         const data = (await response.json()) as {
           tasks?: Task[];
@@ -372,14 +411,12 @@ export function DeviceView({
         allTasks.push(...(data.tasks ?? []));
       }
 
-      clearAnalyzeStageTimer();
       setTasksCreated(allTasks.length);
       setAnalyzeStatus("done");
       setAnalyzeProgress("");
       setSelectedVideoIds(new Set());
       onAnalysisComplete(allTasks);
     } catch (err) {
-      clearAnalyzeStageTimer();
       setAnalyzeStatus("error");
       setAnalyzeProgress("");
       setError(err instanceof Error ? err.message : "Failed to analyze selected videos");
@@ -390,10 +427,10 @@ export function DeviceView({
     }
   }, [
     analyzeStatus,
-    clearAnalyzeStageTimer,
+    demoVideoMode,
     onAnalysisComplete,
     selectedVideos,
-    startAnalyzeStageProgress,
+    setVideoAnalyzeProgress,
   ]);
 
   if (viewState === "loading") {

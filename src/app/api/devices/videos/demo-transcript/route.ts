@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { resolveDemoTranscript } from "@/lib/demo/config";
 import { getSessionUser } from "@/lib/auth/session";
 import { getDeviceForUser } from "@/lib/devices/repository";
-import { fetchR2VideoFile, isR2Configured, isUserOwnedR2Key } from "@/lib/r2/client";
-import { analyzeVideoFile, analyzeVideoTranscript } from "@/lib/video-pipeline";
+import {
+  isDemoVideoModeEnabled,
+  resolveDemoTranscript,
+  simulateGeminiTranscriptionDelay,
+} from "@/lib/demo/config";
+import { isR2Configured, isUserOwnedR2Key } from "@/lib/r2/client";
 
 export const runtime = "nodejs";
 
+/** Demo step 1 — simulated Gemini transcription delay, returns scripted transcript. */
 export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) {
@@ -15,6 +19,10 @@ export async function POST(request: Request) {
 
   if (!isR2Configured()) {
     return NextResponse.json({ error: "Video storage is not configured" }, { status: 503 });
+  }
+
+  if (!isDemoVideoModeEnabled()) {
+    return NextResponse.json({ error: "Demo video mode is not enabled" }, { status: 400 });
   }
 
   try {
@@ -35,37 +43,27 @@ export async function POST(request: Request) {
     }
 
     const demoIndex = typeof body.demoIndex === "number" ? body.demoIndex : 0;
-    const demoTranscript = resolveDemoTranscript({
+    const transcript = resolveDemoTranscript({
       key,
       title: body.title,
       demoIndex,
     });
 
-    if (demoTranscript) {
-      const result = await analyzeVideoTranscript(demoTranscript, user.id, {
-        source: "demo-gemini",
-        simulateTranscriptionDelay: true,
-        demo: true,
-      });
-
-      return NextResponse.json({
-        key,
-        title: key.split("/").pop() ?? "Demo video",
-        ...result,
-      });
+    if (!transcript) {
+      return NextResponse.json({ error: "No demo transcript configured" }, { status: 404 });
     }
 
-    const file = await fetchR2VideoFile(key);
-    const result = await analyzeVideoFile(file, user.id);
+    await simulateGeminiTranscriptionDelay();
 
     return NextResponse.json({
       key,
-      title: file.name,
-      ...result,
+      title: body.title?.trim() || key.split("/").pop() || "Demo video",
+      transcript,
+      demo: true,
     });
   } catch (error) {
-    console.error("Failed to analyze device video", error);
-    const message = error instanceof Error ? error.message : "Failed to analyze video";
+    console.error("Failed to resolve demo transcript", error);
+    const message = error instanceof Error ? error.message : "Failed to load demo transcript";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
