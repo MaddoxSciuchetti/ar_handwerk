@@ -18,7 +18,7 @@ async function main() {
     .filter((statement) => statement.length > 0 && !statement.startsWith("--"));
 
   for (const statement of statements) {
-    await sql(statement);
+    await sql.query(statement);
   }
 
   console.log("Neon schema applied successfully.");

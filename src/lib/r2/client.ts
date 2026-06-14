@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -150,7 +151,25 @@ function sanitizeFilename(filename: string): string {
 }
 
 export function buildR2UploadKey(userId: string, filename: string): string {
-  return `uploads/${userId}/${Date.now()}-${sanitizeFilename(filename)}`;
+  return `${getUserUploadPrefix(userId)}${Date.now()}-${sanitizeFilename(filename)}`;
+}
+
+export function getUserUploadPrefix(userId: string): string {
+  return `uploads/${userId}/`;
+}
+
+export function isUserOwnedR2Key(userId: string, key: string): boolean {
+  return key.startsWith(getUserUploadPrefix(userId));
+}
+
+export async function deleteR2Object(key: string): Promise<void> {
+  const { bucketName } = getR2Config();
+  await getR2Client().send(
+    new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    })
+  );
 }
 
 export async function uploadR2Video(file: File, key: string): Promise<void> {

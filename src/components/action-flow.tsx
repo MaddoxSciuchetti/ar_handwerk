@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Check } from "lucide-react";
 import { ActionCardContent } from "@/components/action-cards/action-card-content";
 import { SwipeableCard } from "@/components/swipeable-card";
 import type { ProposedAction } from "@/lib/actions/types";
@@ -239,7 +240,7 @@ export function ActionFlow({
         ) : null}
       </div>
 
-      {error ? <p className="mt-2 shrink-0 text-[11px] text-red-600">{error}</p> : null}
+      {error ? <p className="mt-2 shrink-0 text-[11px] text-red-800">{error}</p> : null}
 
       <div
         className={`mt-3 shrink-0 ${
@@ -252,8 +253,8 @@ export function ActionFlow({
           disabled={loading}
           className={
             isFocus
-              ? "flex h-14 w-14 items-center justify-center rounded-full border-2 border-red-200 bg-white text-red-500 shadow-sm transition-colors hover:border-red-300 hover:bg-red-50 disabled:opacity-50"
-              : "flex items-center justify-center gap-2 rounded-full bg-red-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+              ? "flex h-14 w-14 items-center justify-center rounded-full border-2 border-red-700 bg-white text-red-800 shadow-sm transition-colors hover:border-red-800 hover:bg-red-100 disabled:opacity-50"
+              : "flex items-center justify-center gap-2 rounded-full bg-red-700 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-red-800 disabled:opacity-50"
           }
           title="Reject"
           aria-label="Reject"
@@ -291,8 +292,8 @@ export function ActionFlow({
           disabled={acceptDisabled}
           className={
             isFocus
-              ? "flex h-14 w-14 items-center justify-center rounded-full border-2 border-emerald-200 bg-white text-emerald-600 shadow-sm transition-colors hover:border-emerald-300 hover:bg-emerald-50 disabled:opacity-50"
-              : "flex items-center justify-center gap-2 rounded-full bg-emerald-500 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+              ? "flex h-14 w-14 items-center justify-center rounded-full border-2 border-emerald-700 bg-white text-emerald-800 shadow-sm transition-colors hover:border-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+              : "flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-800 disabled:opacity-50"
           }
           title={acceptLabel}
           aria-label={acceptLabel}
@@ -361,11 +362,12 @@ export function ActionFlow({
     return (
       <ActionStepShell
         isFocus={isFocus}
-        className={`items-center justify-center ${
-          isFocus ? "h-full bg-emerald-50 p-6 pt-10" : "min-h-[20rem] bg-emerald-50"
-        }`}
+        className={`items-center justify-center ${isFocus ? "h-full p-6 pt-10" : "min-h-[20rem]"}`}
       >
-        <p className="text-[12px] font-medium text-emerald-700">All actions complete</p>
+        <div className="flex items-center gap-2">
+          <Check size={18} strokeWidth={2.25} className="text-emerald-700" aria-hidden />
+          <p className="text-[12px] font-medium text-zinc-700">All actions complete</p>
+        </div>
       </ActionStepShell>
     );
   }

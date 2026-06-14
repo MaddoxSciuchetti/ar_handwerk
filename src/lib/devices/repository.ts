@@ -3,6 +3,7 @@ import type {
   DeviceRecord,
   DeviceSetupInput,
   DeviceType,
+  DeviceVideoInsert,
   DeviceVideoRecord,
   SyncPreference,
 } from "@/lib/devices/types";
@@ -20,6 +21,7 @@ type DeviceRow = {
 
 type DeviceVideoRow = {
   id: string;
+  user_id: string | null;
   device_type: DeviceType;
   title: string;
   r2_key: string;
@@ -44,6 +46,7 @@ function mapDevice(row: DeviceRow): DeviceRecord {
 function mapVideo(row: DeviceVideoRow): DeviceVideoRecord {
   return {
     id: row.id,
+    userId: row.user_id,
     deviceType: row.device_type,
     title: row.title,
     r2Key: row.r2_key,
@@ -112,7 +115,7 @@ export async function listVideosForDeviceType(
 ): Promise<DeviceVideoRecord[]> {
   const sql = getDb();
   const rows = await sql`
-    SELECT id, device_type, title, r2_key, thumbnail_r2_key,
+    SELECT id, user_id, device_type, title, r2_key, thumbnail_r2_key,
            duration_sec, recorded_at
     FROM device_videos
     WHERE device_type = ${deviceType}
@@ -120,4 +123,60 @@ export async function listVideosForDeviceType(
   `;
 
   return (rows as DeviceVideoRow[]).map(mapVideo);
+}
+
+export async function listVideosForUser(userId: string): Promise<DeviceVideoRecord[]> {
+  const sql = getDb();
+  const rows = await sql`
+    SELECT id, user_id, device_type, title, r2_key, thumbnail_r2_key,
+           duration_sec, recorded_at
+    FROM device_videos
+    WHERE user_id = ${userId}
+    ORDER BY recorded_at DESC
+  `;
+
+  return (rows as DeviceVideoRow[]).map(mapVideo);
+}
+
+export async function upsertDeviceVideo(input: DeviceVideoInsert): Promise<DeviceVideoRecord> {
+  const sql = getDb();
+  const rows = await sql`
+    INSERT INTO device_videos (
+      user_id, device_type, title, r2_key, thumbnail_r2_key,
+      duration_sec, recorded_at
+    )
+    VALUES (
+      ${input.userId},
+      ${input.deviceType},
+      ${input.title},
+      ${input.r2Key},
+      ${input.thumbnailR2Key ?? null},
+      ${input.durationSec ?? null},
+      ${input.recordedAt}
+    )
+    ON CONFLICT (r2_key)
+    DO UPDATE SET
+      user_id = EXCLUDED.user_id,
+      title = EXCLUDED.title,
+      recorded_at = EXCLUDED.recorded_at,
+      duration_sec = COALESCE(EXCLUDED.duration_sec, device_videos.duration_sec)
+    RETURNING id, user_id, device_type, title, r2_key, thumbnail_r2_key,
+              duration_sec, recorded_at
+  `;
+
+  return mapVideo(rows[0] as DeviceVideoRow);
+}
+
+export async function deleteDeviceVideoForUser(
+  userId: string,
+  r2Key: string
+): Promise<boolean> {
+  const sql = getDb();
+  const rows = await sql`
+    DELETE FROM device_videos
+    WHERE r2_key = ${r2Key} AND user_id = ${userId}
+    RETURNING id
+  `;
+
+  return rows.length > 0;
 }

@@ -39,17 +39,27 @@ export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate, onTa
   const selectedTask = tasks.find((task) => task.id === selectedTaskId);
 
   return (
-    <div className="flex min-h-full flex-col gap-3">
+    <div className="flex min-h-[calc(100vh-3rem)] flex-col gap-3">
       <h1 className="page-title-hero shrink-0">{today}</h1>
 
       {allClear && tasks.length === 0 ? (
-        <div className="all-clear-card flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
-          <p className="text-[15px] font-semibold text-zinc-900">You&apos;re all clear</p>
-          <p className="max-w-xs text-[13px] text-zinc-500">No tasks found in your video.</p>
+        <div className="flex flex-1 items-center justify-center py-6">
+          <div className="all-clear-card flex w-full max-w-2xl flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+            <p className="text-[15px] font-semibold text-zinc-900">You&apos;re all clear</p>
+            <p className="max-w-xs text-[13px] text-zinc-500">No tasks found in your video.</p>
+          </div>
         </div>
       ) : tasks.length === 0 ? (
-        <div className="widget-card py-8 text-center">
-          <p className="text-[12px] text-zinc-500">Upload a video to extract tasks.</p>
+        <div className="flex flex-1 items-center justify-center py-6">
+          <div className="flex w-full max-w-2xl flex-col items-stretch">
+            <article className="action-flow-card flex min-h-[36rem] w-full flex-col">
+              <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-3">
+                <div className="action-step-card flex min-h-[20rem] flex-1 flex-col items-center justify-center p-4">
+                  <p className="text-[12px] text-zinc-500">Upload a video to extract tasks.</p>
+                </div>
+              </div>
+            </article>
+          </div>
         </div>
       ) : (
         <div className="flex flex-1 items-center justify-center py-6">

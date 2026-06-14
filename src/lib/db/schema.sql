@@ -18,6 +18,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS devices_user_id_device_type_idx
 
 CREATE TABLE IF NOT EXISTS device_videos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT,
   device_type TEXT NOT NULL,
   title TEXT NOT NULL,
   r2_key TEXT NOT NULL UNIQUE,
@@ -27,8 +28,13 @@ CREATE TABLE IF NOT EXISTS device_videos (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE device_videos ADD COLUMN IF NOT EXISTS user_id TEXT;
+
 CREATE INDEX IF NOT EXISTS device_videos_device_type_idx
   ON device_videos (device_type);
+
+CREATE INDEX IF NOT EXISTS device_videos_user_id_idx
+  ON device_videos (user_id);
 
 CREATE INDEX IF NOT EXISTS device_videos_recorded_at_idx
   ON device_videos (recorded_at DESC);
@@ -75,9 +81,12 @@ CREATE TABLE IF NOT EXISTS tasks (
   action_flow_step INTEGER NOT NULL DEFAULT 0,
   integrations JSONB NOT NULL DEFAULT '{}'::jsonb,
   source_transcript TEXT,
+  pioneer_extraction JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS tasks_user_id_created_at_idx
   ON tasks (user_id, created_at DESC);
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pioneer_extraction JSONB;

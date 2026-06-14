@@ -194,7 +194,15 @@ export function AppShell() {
       if (response.ok) {
         const data = (await response.json()) as { tasks?: Task[] };
         const saved = data.tasks ?? newTasks;
-        setTasks((prev) => [...saved, ...prev]);
+        const extractionByTitle = new Map(
+          newTasks.map((task) => [task.title, task.pioneerExtraction] as const),
+        );
+        const merged = saved.map((task, index) => ({
+          ...task,
+          pioneerExtraction:
+            task.pioneerExtraction ?? extractionByTitle.get(task.title) ?? newTasks[index]?.pioneerExtraction,
+        }));
+        setTasks((prev) => [...merged, ...prev]);
         return;
       }
     } catch {

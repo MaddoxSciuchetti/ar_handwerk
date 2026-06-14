@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   Calendar,
+  Check,
   Focus,
   MapPin,
   ShoppingCart,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { ActionFocusModal } from "@/components/action-focus-modal";
 import { ActionFlow } from "@/components/action-flow";
+import { PioneerExtractionModal } from "@/components/pioneer-extraction-modal";
 import { getTaskDisplayAttributes, type Task } from "@/lib/tasks";
 
 type TaskPillProps = {
@@ -33,14 +35,20 @@ export function TaskPill({ index, task, selected, onSelect }: TaskPillProps) {
       onClick={onSelect}
       aria-pressed={selected}
       title={task.title}
-      className={`focus-ring rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+      className={`focus-ring inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
         selected
           ? "border-zinc-900 bg-zinc-900 text-white shadow-sm"
-          : complete
-            ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-300"
-            : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+          : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
       }`}
     >
+      {complete ? (
+        <Check
+          size={12}
+          strokeWidth={2.5}
+          className={selected ? "text-emerald-400" : "text-emerald-700"}
+          aria-hidden
+        />
+      ) : null}
       Task {index}
     </button>
   );
@@ -64,6 +72,7 @@ export function TaskWidget({
   onTaskDelete,
 }: TaskWidgetProps) {
   const [focusMode, setFocusMode] = useState(false);
+  const [pioneerOpen, setPioneerOpen] = useState(false);
   const actions = task.proposedActions ?? [];
   const step = task.actionFlowStep ?? 0;
   const actionsPending = actions.length > 0 && step < actions.length;
@@ -87,6 +96,15 @@ export function TaskWidget({
               <h2 className="mt-1 text-[15px] font-semibold leading-snug text-zinc-900">{task.title}</h2>
             </div>
             <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPioneerOpen(true)}
+                title="View Pioneer entity extraction"
+                aria-label="View Pioneer entity extraction"
+                className="focus-ring inline-flex h-5 min-w-5 items-center justify-center rounded border border-black/[0.08] px-1 font-mono text-[8px] font-semibold leading-none text-zinc-500 transition-colors hover:border-black/15 hover:text-zinc-700"
+              >
+                {"{}"}
+              </button>
               <button
                 type="button"
                 onClick={() => setFocusMode(true)}
@@ -136,6 +154,12 @@ export function TaskWidget({
           onTaskUpdate={onTaskUpdate}
         />
       </ActionFocusModal>
+
+      <PioneerExtractionModal
+        open={pioneerOpen}
+        task={task}
+        onClose={() => setPioneerOpen(false)}
+      />
     </>
   );
 }

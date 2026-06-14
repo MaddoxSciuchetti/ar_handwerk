@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Glasses, Play, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, Glasses, Loader2, Play, Trash2, X } from "lucide-react";
 import { SUPPORTED_DEVICES } from "@/lib/devices/catalog";
 import type { DeviceRecord, DeviceSetupInput, DeviceType, SyncPreference } from "@/lib/devices/types";
 import type { Task } from "@/lib/tasks";
@@ -18,8 +18,15 @@ type DeviceVideo = {
 type ViewState = "loading" | "select" | "setup" | "gallery";
 
 type AnalyzeStatus = "idle" | "running" | "done" | "error";
+type AnalyzeStage = "transcribe" | "pioneer" | "plan";
 
 const DEFAULT_DEVICE_TYPE: DeviceType = "meta-ray-ban";
+
+const ANALYSIS_STAGES: { id: AnalyzeStage; label: string }[] = [
+  { id: "transcribe", label: "Transcribing with Gemini" },
+  { id: "pioneer", label: "Extracting tasks with Pioneer" },
+  { id: "plan", label: "Planning follow-up actions" },
+];
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-GB", {
@@ -54,7 +61,11 @@ export function DeviceView({
   const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
   const [analyzeStatus, setAnalyzeStatus] = useState<AnalyzeStatus>("idle");
   const [analyzeProgress, setAnalyzeProgress] = useState("");
+  const [analyzeStage, setAnalyzeStage] = useState<AnalyzeStage>("transcribe");
+  const [demoVideoMode, setDemoVideoMode] = useState(false);
+  const analyzeStageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [tasksCreated, setTasksCreated] = useState(0);
+  const [deletingVideoIds, setDeletingVideoIds] = useState<Set<string>>(new Set());
 
   const [deviceName, setDeviceName] = useState("");
   const [serialNumber, setSerialNumber] = useState("");
@@ -116,6 +127,50 @@ export function DeviceView({
   useEffect(() => {
     void loadDevice();
   }, [loadDevice]);
+
+  useEffect(() => {
+    async function loadDemoConfig() {
+      try {
+        const response = await fetch("/api/demo/config");
+        if (!response.ok) return;
+        const data = (await response.json()) as { demoVideoMode?: boolean };
+        setDemoVideoMode(Boolean(data.demoVideoMode));
+      } catch {
+        // Demo mode stays off if config cannot be loaded.
+      }
+    }
+
+    void loadDemoConfig();
+  }, []);
+
+  const clearAnalyzeStageTimer = useCallback(() => {
+    for (const timer of analyzeStageTimersRef.current) {
+      clearTimeout(timer);
+    }
+    analyzeStageTimersRef.current = [];
+  }, []);
+
+  const startAnalyzeStageProgress = useCallback(
+    (videoTitle: string, videoIndex: number, totalVideos: number) => {
+      clearAnalyzeStageTimer();
+      setAnalyzeStage("transcribe");
+      setAnalyzeProgress(
+        demoVideoMode
+          ? `Video ${videoIndex + 1} of ${totalVideos}: ${videoTitle}`
+          : `Analyzing ${videoIndex + 1} of ${totalVideos}: ${videoTitle}`,
+      );
+
+      if (!demoVideoMode) return;
+
+      analyzeStageTimersRef.current = [
+        setTimeout(() => setAnalyzeStage("pioneer"), 12_000),
+        setTimeout(() => setAnalyzeStage("plan"), 16_000),
+      ];
+    },
+    [clearAnalyzeStageTimer, demoVideoMode],
+  );
+
+  useEffect(() => () => clearAnalyzeStageTimer(), [clearAnalyzeStageTimer]);
 
   useEffect(() => {
     if (!activeVideo) return;
@@ -199,6 +254,7 @@ export function DeviceView({
     }
   }, []);
 
+  const isDeleting = deletingVideoIds.size > 0;
   const selectedVideos = useMemo(
     () => videos.filter((video) => selectedVideoIds.has(video.id)),
     [videos, selectedVideoIds]
@@ -216,26 +272,79 @@ export function DeviceView({
     });
   }, []);
 
+  const deleteVideos = useCallback(
+    async (videoIds: string[]) => {
+      if (videoIds.length === 0 || deletingVideoIds.size > 0) return;
+
+      const label =
+        videoIds.length === 1
+          ? "Delete this video? This cannot be undone."
+          : `Delete ${videoIds.length} videos? This cannot be undone.`;
+      if (!window.confirm(label)) return;
+
+      setDeletingVideoIds(new Set(videoIds));
+      setError("");
+
+      const deletedIds: string[] = [];
+
+      try {
+        for (const videoId of videoIds) {
+          const response = await fetch("/api/devices/videos", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: videoId }),
+          });
+          const data = (await response.json()) as { error?: string };
+          if (!response.ok) {
+            throw new Error(data.error ?? "Failed to delete video");
+          }
+          deletedIds.push(videoId);
+        }
+
+        setVideos((current) => current.filter((video) => !deletedIds.includes(video.id)));
+        setSelectedVideoIds((current) => {
+          const next = new Set(current);
+          deletedIds.forEach((id) => next.delete(id));
+          return next;
+        });
+        if (activeVideo && deletedIds.includes(activeVideo.id)) {
+          setActiveVideo(null);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to delete video");
+      } finally {
+        setDeletingVideoIds(new Set());
+      }
+    },
+    [activeVideo, deletingVideoIds.size]
+  );
+
+  const deleteVideo = useCallback(
+    async (videoId: string) => {
+      await deleteVideos([videoId]);
+    },
+    [deleteVideos]
+  );
+
   const analyzeSelectedVideos = useCallback(async () => {
     if (selectedVideos.length === 0 || analyzeStatus === "running") return;
 
     setAnalyzeStatus("running");
     setError("");
     setTasksCreated(0);
+    setAnalyzeStage("transcribe");
 
     const allTasks: Task[] = [];
 
     try {
       for (let index = 0; index < selectedVideos.length; index += 1) {
         const video = selectedVideos[index];
-        setAnalyzeProgress(
-          `Analyzing ${index + 1} of ${selectedVideos.length}: ${video.title}`
-        );
+        startAnalyzeStageProgress(video.title, index, selectedVideos.length);
 
         const response = await fetch("/api/devices/videos/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: video.id }),
+          body: JSON.stringify({ key: video.id, demoIndex: index }),
         });
         const data = (await response.json()) as {
           tasks?: Task[];
@@ -249,12 +358,14 @@ export function DeviceView({
         allTasks.push(...(data.tasks ?? []));
       }
 
+      clearAnalyzeStageTimer();
       setTasksCreated(allTasks.length);
       setAnalyzeStatus("done");
       setAnalyzeProgress("");
       setSelectedVideoIds(new Set());
       onAnalysisComplete(allTasks);
     } catch (err) {
+      clearAnalyzeStageTimer();
       setAnalyzeStatus("error");
       setAnalyzeProgress("");
       setError(err instanceof Error ? err.message : "Failed to analyze selected videos");
@@ -263,7 +374,13 @@ export function DeviceView({
         onAnalysisComplete(allTasks);
       }
     }
-  }, [analyzeStatus, onAnalysisComplete, selectedVideos]);
+  }, [
+    analyzeStatus,
+    clearAnalyzeStageTimer,
+    onAnalysisComplete,
+    selectedVideos,
+    startAnalyzeStageProgress,
+  ]);
 
   if (viewState === "loading") {
     return (
@@ -432,15 +549,25 @@ export function DeviceView({
               )
             }
             className="btn-secondary focus-ring"
-            disabled={videos.length === 0 || analyzeStatus === "running"}
+            disabled={videos.length === 0 || analyzeStatus === "running" || isDeleting}
           >
             {selectedVideoIds.size === videos.length ? "Clear selection" : "Select all"}
           </button>
+          {selectedVideos.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => void deleteVideos(selectedVideos.map((video) => video.id))}
+              className="btn-secondary focus-ring text-red-600"
+              disabled={analyzeStatus === "running" || isDeleting}
+            >
+              {isDeleting ? "Deleting…" : `Delete (${selectedVideos.length})`}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => void analyzeSelectedVideos()}
             className="btn-primary focus-ring"
-            disabled={selectedVideos.length === 0 || analyzeStatus === "running"}
+            disabled={selectedVideos.length === 0 || analyzeStatus === "running" || isDeleting}
           >
             {analyzeStatus === "running"
               ? "Scanning…"
@@ -449,8 +576,12 @@ export function DeviceView({
         </div>
       </div>
 
-      {analyzeStatus === "running" && analyzeProgress ? (
-        <p className="callout callout-neutral">{analyzeProgress}</p>
+      {analyzeStatus === "running" ? (
+        <AnalysisProgressPanel
+          demoVideoMode={demoVideoMode}
+          stage={analyzeStage}
+          progressLabel={analyzeProgress}
+        />
       ) : null}
 
       {analyzeStatus === "done" && tasksCreated > 0 ? (
@@ -465,7 +596,7 @@ export function DeviceView({
 
       {loadingVideos ? (
         <p className="body-sm text-zinc-400">Loading videos…</p>
-      ) : videos.length === 0 ? (
+      ) : error ? null : videos.length === 0 ? (
         <div className="widget-card p-6 text-center">
           <p className="body-md text-zinc-600">No videos synced yet.</p>
           <p className="body-sm mt-1 text-zinc-400">
@@ -476,12 +607,13 @@ export function DeviceView({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {videos.map((video) => {
             const isSelected = selectedVideoIds.has(video.id);
+            const isVideoDeleting = deletingVideoIds.has(video.id);
             return (
               <div
                 key={video.id}
                 className={`widget-card overflow-hidden p-0 transition-shadow ${
                   isSelected ? "ring-2 ring-zinc-900 ring-offset-2" : ""
-                }`}
+                } ${isVideoDeleting ? "opacity-60" : ""}`}
               >
                 <div className="relative aspect-video bg-zinc-950">
                   <button
@@ -489,6 +621,7 @@ export function DeviceView({
                     onClick={() => setActiveVideo(video)}
                     className="focus-ring group absolute inset-0"
                     aria-label={`Play ${video.title}`}
+                    disabled={isVideoDeleting}
                   >
                     <video
                       src={video.thumbnailUrl ?? video.playbackUrl}
@@ -508,11 +641,20 @@ export function DeviceView({
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleVideoSelection(video.id)}
-                      disabled={analyzeStatus === "running"}
+                      disabled={analyzeStatus === "running" || isVideoDeleting}
                       className="h-3.5 w-3.5 rounded border-zinc-300"
                     />
                     Select
                   </label>
+                  <button
+                    type="button"
+                    onClick={() => void deleteVideo(video.id)}
+                    className="focus-ring absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-zinc-600 shadow-sm transition-colors hover:bg-white hover:text-red-600"
+                    aria-label={`Delete ${video.title}`}
+                    disabled={analyzeStatus === "running" || isVideoDeleting}
+                  >
+                    <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+                  </button>
                 </div>
                 <div className="p-3">
                   <p className="truncate text-[13px] font-medium text-zinc-900">{video.title}</p>
@@ -561,6 +703,60 @@ export function DeviceView({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AnalysisProgressPanel({
+  demoVideoMode,
+  stage,
+  progressLabel,
+}: {
+  demoVideoMode: boolean;
+  stage: AnalyzeStage;
+  progressLabel: string;
+}) {
+  const stageIndex = ANALYSIS_STAGES.findIndex((item) => item.id === stage);
+
+  return (
+    <div className="widget-card p-4">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100">
+          <Loader2 size={16} strokeWidth={2} className="animate-spin text-zinc-600" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-medium text-zinc-900">
+            {demoVideoMode ? "Scanning selected videos…" : "Analyzing selected videos…"}
+          </p>
+          {progressLabel ? <p className="body-sm mt-0.5 text-zinc-500">{progressLabel}</p> : null}
+          {demoVideoMode ? (
+            <ul className="mt-3 flex flex-col gap-2">
+              {ANALYSIS_STAGES.map((item, index) => {
+                const isDone = index < stageIndex;
+                const isActive = item.id === stage;
+                return (
+                  <li
+                    key={item.id}
+                    className={`flex items-center gap-2 text-[12px] ${
+                      isActive ? "font-medium text-zinc-900" : isDone ? "text-emerald-700" : "text-zinc-400"
+                    }`}
+                  >
+                    {isDone ? (
+                      <Check size={14} strokeWidth={2} className="shrink-0 text-emerald-600" aria-hidden />
+                    ) : isActive ? (
+                      <Loader2 size={14} strokeWidth={2} className="shrink-0 animate-spin" aria-hidden />
+                    ) : (
+                      <span className="inline-flex h-3.5 w-3.5 shrink-0 rounded-full border border-zinc-300" />
+                    )}
+                    {item.label}
+                    {isActive && item.id === "transcribe" ? "…" : ""}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

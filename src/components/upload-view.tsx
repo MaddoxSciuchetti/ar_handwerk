@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, FileVideo, Loader2, Maximize2, Video, X } from "lucide-react";
-import { parsePioneerTasks, hasPioneerTaskSignals, type Task } from "@/lib/tasks";
+import { parsePioneerTasks, hasPioneerTaskSignals, enrichTasksWithPioneerData, type Task } from "@/lib/tasks";
 
 type StageStatus = "idle" | "active" | "done" | "error";
 
@@ -163,8 +163,8 @@ export function UploadView({
 
         const plannedTasks = (
           Array.isArray(planJson.tasks) && planJson.tasks.length > 0
-            ? planJson.tasks
-            : tasks
+            ? enrichTasksWithPioneerData(pioneerData, planJson.tasks as Task[])
+            : enrichTasksWithPioneerData(pioneerData, tasks)
         ) as Task[];
         setTasksCreated(plannedTasks.length);
         setPlanStatus("done");
@@ -175,7 +175,7 @@ export function UploadView({
         setPlanStatus("error");
         setTasksCreated(tasks.length);
         setDone(true);
-        finish(tasks);
+        finish(enrichTasksWithPioneerData(pioneerData, tasks));
         setError(
           planErr instanceof Error
             ? `${planErr.message} — tasks created without planned actions.`

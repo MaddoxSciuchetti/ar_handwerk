@@ -27,6 +27,7 @@ function toCreateInput(task: Task, sourceTranscript?: string): CreateTaskInput {
     proposedActions: task.proposedActions,
     actionFlowStep: task.actionFlowStep,
     integrations: task.integrations,
+    pioneerExtraction: task.pioneerExtraction,
     sourceTranscript,
   };
 }

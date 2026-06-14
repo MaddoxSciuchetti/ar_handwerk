@@ -37,6 +37,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       proposedActions: body.proposedActions,
       actionFlowStep: body.actionFlowStep,
       integrations: body.integrations,
+      pioneerExtraction: body.pioneerExtraction,
       createdAt: body.createdAt ?? new Date().toISOString(),
     };
 

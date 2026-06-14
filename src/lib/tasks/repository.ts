@@ -1,6 +1,6 @@
 import type { ProposedAction } from "@/lib/actions/types";
 import { getDb } from "@/lib/db/client";
-import type { Task, TaskIntegrations, TaskStatus } from "@/lib/tasks";
+import type { Task, TaskIntegrations, TaskStatus, PioneerTaskExtraction } from "@/lib/tasks";
 
 type TaskRow = {
   id: string;
@@ -18,6 +18,7 @@ type TaskRow = {
   action_flow_step: number;
   integrations: TaskIntegrations | string;
   source_transcript: string | null;
+  pioneer_extraction: unknown | string | null;
   created_at: string;
   updated_at: string;
 };
@@ -32,6 +33,16 @@ function parseJsonField<T>(value: T | string | null | undefined, fallback: T): T
     }
   }
   return value;
+}
+
+let tasksSchemaReady = false;
+
+async function ensureTasksSchema(): Promise<void> {
+  if (tasksSchemaReady) return;
+
+  const sql = getDb();
+  await sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pioneer_extraction JSONB`;
+  tasksSchemaReady = true;
 }
 
 function mapTask(row: TaskRow): Task {
@@ -49,17 +60,22 @@ function mapTask(row: TaskRow): Task {
     proposedActions: parseJsonField(row.proposed_actions, []),
     actionFlowStep: row.action_flow_step,
     integrations: parseJsonField(row.integrations, {}),
+    pioneerExtraction: parseJsonField<PioneerTaskExtraction | undefined>(
+      row.pioneer_extraction as PioneerTaskExtraction | string | null | undefined,
+      undefined,
+    ),
     createdAt: row.created_at,
   };
 }
 
 export async function listTasksForUser(userId: string): Promise<Task[]> {
+  await ensureTasksSchema();
   const sql = getDb();
   const rows = await sql`
     SELECT
       id, user_id, title, problem, assignee, location, deadline,
       item_to_buy, material, equipment, status, proposed_actions,
-      action_flow_step, integrations, source_transcript, created_at, updated_at
+      action_flow_step, integrations, source_transcript, pioneer_extraction, created_at, updated_at
     FROM tasks
     WHERE user_id = ${userId}
     ORDER BY created_at DESC
@@ -78,6 +94,7 @@ export async function createTasksForUser(
 ): Promise<Task[]> {
   if (inputs.length === 0) return [];
 
+  await ensureTasksSchema();
   const sql = getDb();
   const created: Task[] = [];
 
@@ -86,7 +103,7 @@ export async function createTasksForUser(
       INSERT INTO tasks (
         user_id, title, problem, assignee, location, deadline,
         item_to_buy, material, equipment, status, proposed_actions,
-        action_flow_step, integrations, source_transcript, updated_at
+        action_flow_step, integrations, source_transcript, pioneer_extraction, updated_at
       )
       VALUES (
         ${userId},
@@ -103,12 +120,13 @@ export async function createTasksForUser(
         ${input.actionFlowStep ?? 0},
         ${JSON.stringify(input.integrations ?? {})},
         ${input.sourceTranscript ?? null},
+        ${input.pioneerExtraction ?? null},
         now()
       )
       RETURNING
         id, user_id, title, problem, assignee, location, deadline,
         item_to_buy, material, equipment, status, proposed_actions,
-        action_flow_step, integrations, source_transcript, created_at, updated_at
+        action_flow_step, integrations, source_transcript, pioneer_extraction, created_at, updated_at
     `;
 
     created.push(mapTask(rows[0] as TaskRow));
@@ -118,7 +136,25 @@ export async function createTasksForUser(
 }
 
 export async function updateTaskForUser(userId: string, task: Task): Promise<Task | null> {
+  await ensureTasksSchema();
   const sql = getDb();
+  const existingRows = await sql`
+    SELECT pioneer_extraction
+    FROM tasks
+    WHERE id = ${task.id} AND user_id = ${userId}
+    LIMIT 1
+  `;
+  const existingExtraction = (existingRows[0] as { pioneer_extraction?: unknown } | undefined)
+    ?.pioneer_extraction;
+  const pioneerExtraction =
+    task.pioneerExtraction ??
+    (existingExtraction
+      ? parseJsonField<PioneerTaskExtraction | undefined>(
+          existingExtraction as PioneerTaskExtraction | string | null | undefined,
+          undefined,
+        )
+      : undefined);
+
   const rows = await sql`
     UPDATE tasks
     SET
@@ -134,12 +170,13 @@ export async function updateTaskForUser(userId: string, task: Task): Promise<Tas
       proposed_actions = ${JSON.stringify(task.proposedActions ?? [])},
       action_flow_step = ${task.actionFlowStep ?? 0},
       integrations = ${JSON.stringify(task.integrations ?? {})},
+      pioneer_extraction = ${pioneerExtraction ?? null},
       updated_at = now()
     WHERE id = ${task.id} AND user_id = ${userId}
     RETURNING
       id, user_id, title, problem, assignee, location, deadline,
       item_to_buy, material, equipment, status, proposed_actions,
-      action_flow_step, integrations, source_transcript, created_at, updated_at
+      action_flow_step, integrations, source_transcript, pioneer_extraction, created_at, updated_at
   `;
 
   const row = rows[0] as TaskRow | undefined;

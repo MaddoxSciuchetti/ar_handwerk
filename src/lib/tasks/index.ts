@@ -67,6 +67,26 @@ export type Task = {
   integrations?: TaskIntegrations;
   proposedActions?: ProposedAction[];
   actionFlowStep?: number;
+  pioneerExtraction?: PioneerTaskExtraction;
+};
+
+export type PioneerEntitySpan = { text?: string; confidence?: number; start?: number; end?: number };
+
+export type PioneerEntities = Record<string, PioneerEntitySpan[] | undefined>;
+
+export type PioneerData = {
+  service_task?: PioneerServiceTask[];
+  entities?: PioneerEntities;
+  relations?: unknown;
+};
+
+export type PioneerTaskExtraction = {
+  /** Full Pioneer payload for this analyze batch. */
+  raw: PioneerData;
+  matched_service_task?: PioneerServiceTask;
+  matched_task_span?: PioneerEntitySpan;
+  matched_entities?: Record<string, PioneerEntitySpan | undefined>;
+  task_index?: number;
 };
 
 /** True when the task specifies something that needs to be bought. */
@@ -85,7 +105,7 @@ export function buildPurchaseSearchQuery(task: Task): string {
 
 type EntityField = { text?: string; confidence?: number } | null;
 
-type PioneerServiceTask = {
+export type PioneerServiceTask = {
   task?: EntityField;
   problem?: EntityField;
   proposed_action?: EntityField;
@@ -94,22 +114,9 @@ type PioneerServiceTask = {
   people?: EntityField;
   location?: EntityField;
   deadline?: EntityField;
-};
-
-type PioneerEntitySpan = { text?: string; confidence?: number; start?: number; end?: number };
-
-type PioneerEntities = {
-  task?: PioneerEntitySpan[];
-  problem?: PioneerEntitySpan[];
-  proposed_action?: PioneerEntitySpan[];
-  people?: PioneerEntitySpan[];
-  location?: PioneerEntitySpan[];
-  deadline?: PioneerEntitySpan[];
-};
-
-type PioneerData = {
-  service_task?: PioneerServiceTask[];
-  entities?: PioneerEntities;
+  decision?: EntityField;
+  cost?: EntityField;
+  difficulty?: EntityField;
 };
 
 function normalizePioneerPayload(data: unknown): PioneerData {
@@ -143,6 +150,7 @@ function normalizePioneerPayload(data: unknown): PioneerData {
   return {
     service_task: serviceTask as PioneerServiceTask[] | undefined,
     entities: record.entities as PioneerEntities | undefined,
+    relations: record.relations,
   };
 }
 
@@ -200,7 +208,42 @@ function nearestEntityText(
   return nearestEntitySpan(anchor, candidates, maxDistance)?.text?.trim();
 }
 
-function parseServiceTaskRows(items: PioneerServiceTask[]): Task[] {
+function buildMatchedEntities(
+  taskSpan: PioneerEntitySpan,
+  entities: PioneerEntities | undefined,
+): Record<string, PioneerEntitySpan | undefined> {
+  if (!entities) return {};
+
+  return Object.fromEntries(
+    Object.entries(entities).map(([key, spans]) => [
+      key,
+      nearestEntitySpan(taskSpan, spans),
+    ]),
+  );
+}
+
+function buildPioneerExtraction(
+  parsed: PioneerData,
+  match?: {
+    serviceTask?: PioneerServiceTask;
+    taskSpan?: PioneerEntitySpan;
+    index?: number;
+  },
+): PioneerTaskExtraction {
+  return {
+    raw: parsed,
+    ...(match?.serviceTask ? { matched_service_task: match.serviceTask } : {}),
+    ...(match?.taskSpan
+      ? {
+          matched_task_span: match.taskSpan,
+          matched_entities: buildMatchedEntities(match.taskSpan, parsed.entities),
+        }
+      : {}),
+    ...(match?.index != null ? { task_index: match.index } : {}),
+  };
+}
+
+function parseServiceTaskRows(items: PioneerServiceTask[], parsed: PioneerData): Task[] {
   const batchId = Date.now();
 
   return items.flatMap((item, index) => {
@@ -224,13 +267,14 @@ function parseServiceTaskRows(items: PioneerServiceTask[]): Task[] {
         ...purchase,
         status: "pending" as const,
         createdAt: new Date().toISOString(),
+        pioneerExtraction: buildPioneerExtraction(parsed, { serviceTask: item, index }),
       },
     ];
   });
 }
 
 /** Fallback when Pioneer returns entities but no grouped service_task rows. */
-function parseEntityFallback(entities: PioneerEntities | undefined): Task[] {
+function parseEntityFallback(entities: PioneerEntities | undefined, parsed: PioneerData): Task[] {
   const batchId = Date.now();
   const taskSpans = (entities?.task ?? []).filter((span) => span.text?.trim());
   const actionSpans = (entities?.proposed_action ?? []).filter((span) => span.text?.trim());
@@ -246,14 +290,78 @@ function parseEntityFallback(entities: PioneerEntities | undefined): Task[] {
     deadline: normalizeEntityText(nearestEntityText(taskSpan, entities?.deadline)),
     status: "pending" as const,
     createdAt: new Date().toISOString(),
+    pioneerExtraction: buildPioneerExtraction(parsed, { taskSpan, index }),
   }));
+}
+
+/** Re-attach full Pioneer payload if planning or persistence dropped it. */
+export function enrichTasksWithPioneerData(data: unknown, tasks: Task[]): Task[] {
+  const parsed = normalizePioneerPayload(data);
+  if (!parsed.entities && !parsed.service_task && !parsed.relations) {
+    return tasks;
+  }
+
+  const structured = parsed.service_task ?? [];
+  const entityAnchors = (parsed.entities?.task ?? []).filter((span) => span.text?.trim());
+  const actionAnchors = (parsed.entities?.proposed_action ?? []).filter((span) => span.text?.trim());
+  const fallbackAnchors = entityAnchors.length > 0 ? entityAnchors : actionAnchors;
+
+  return tasks.map((task, index) => {
+    if (task.pioneerExtraction?.raw) return task;
+
+    const serviceTask = structured[index];
+    const taskSpan = fallbackAnchors[index];
+
+    if (!serviceTask && !taskSpan) {
+      return {
+        ...task,
+        pioneerExtraction: buildPioneerExtraction(parsed, { index }),
+      };
+    }
+
+    return {
+      ...task,
+      pioneerExtraction: buildPioneerExtraction(parsed, {
+        serviceTask,
+        taskSpan,
+        index,
+      }),
+    };
+  });
+}
+
+export function formatPioneerExtractionJson(task: Task): string {
+  if (task.pioneerExtraction) {
+    return JSON.stringify(task.pioneerExtraction, null, 2);
+  }
+
+  return JSON.stringify(
+    {
+      source: "derived_from_task",
+      note: "Raw Pioneer extraction was not stored for this task. Showing parsed task fields.",
+      task: {
+        title: task.title,
+        problem: task.problem ?? null,
+        assignee: task.assignee ?? null,
+        location: task.location ?? null,
+        deadline: task.deadline ?? null,
+        itemToBuy: task.itemToBuy ?? null,
+        material: task.material ?? null,
+        equipment: task.equipment ?? null,
+      },
+    },
+    null,
+    2,
+  );
 }
 
 export function parsePioneerTasks(data: unknown): Task[] {
   const parsed = normalizePioneerPayload(data);
-  const fromStructures = parseServiceTaskRows(parsed.service_task ?? []);
+  const fromStructures = parseServiceTaskRows(parsed.service_task ?? [], parsed);
   const tasks =
-    fromStructures.length > 0 ? fromStructures : parseEntityFallback(parsed.entities);
+    fromStructures.length > 0
+      ? fromStructures
+      : parseEntityFallback(parsed.entities, parsed);
   return tasks.filter((task) => !isLowQualityTaskTitle(task.title));
 }
 
