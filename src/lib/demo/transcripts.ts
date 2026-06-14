@@ -1,6 +1,9 @@
 /**
  * Pre-written transcripts for demo videos whose real audio does not mention
  * the tasks we want Pioneer to extract. Matched to bucket videos by title/key.
+ *
+ * Each script describes exactly ONE Hauptaufgabe (topic). Follow-up steps are
+ * framed as proposed actions under that topic, not separate tasks.
  */
 
 export type DemoVideoScript = {
@@ -13,52 +16,106 @@ export type DemoVideoScript = {
 export const DEMO_VIDEO_SCRIPTS: DemoVideoScript[] = [
   {
     id: "legionellen-pruefung",
-    patterns: ["legionell", "legionellen pr", "legionellenpr"],
-    transcript: `[00:00] Handwerker: Kurz für den Tagesbericht — wir waren heute in der Grundschule Am Harras, Legionellenprüfung an allen Trinkwasserleitungen im Keller und in den Sanitärräumen.
+    patterns: [
+      "legionellenpr",
+      "legionellen pr",
+      "legionellen-pr",
+      "legionellen prüfung",
+      "legionellenprufung",
+      "legionellenpruefung",
+      "legionellenpru",
+    ],
+    transcript: `[00:00] Handwerker: Tagesbericht Grundschule Weißenburger Straße — wir waren heute vor Ort und haben die Legionellenprüfung an allen Trinkwasserleitungen im Keller und in den Sanitärräumen durchgeführt.
 
-[00:12] Büroassistentin: Alles dokumentiert?
+[00:14] Büroassistentin: Gibt es nur diese eine Hauptaufgabe für heute?
 
-[00:14] Handwerker: Ja, Proben sind genommen, Messwerte liegen im Protokoll. Hauptaufgabe jetzt: Rechnung für die Legionellenprüfung an die Schule erstellen und per E-Mail verschicken.
+[00:16] Handwerker: Ja, genau eine Aufgabe: Legionellenprüfung in der Grundschule Weißenburger Straße. Proben sind genommen, Messwerte liegen im Protokoll.
 
-[00:26] Büroassistentin: Und Follow-up?
+[00:26] Handwerker: Alles Folgende gehört zu dieser einen Legionellenprüfung — Rechnung an die Schule per E-Mail erstellen, Kontrolltermin in vier Wochen zur Nachprüfung mit der Schulleitung einplanen, und drei kaputte Flexschläuche an den Waschtischen bei REISSER nachbestellen plus Montagetermin für den Tausch.
 
-[00:28] Handwerker: Genau — wir brauchen einen Kontrolltermin in vier Wochen, nochmal Legionellen nachprüfen ob alles im grünen Bereich ist. Termin mit der Schulleitung einplanen.
-
-[00:40] Handwerker: Beim Demontieren sind außerdem drei flexible Verbindungsschläuche an den Waschtischen kaputt gegangen. Die müssen wir bei REISSER nachbestellen — drei Stück Flexschläuche — und einen separaten Montagetermin für den Austausch der Schläuche eintragen.
-
-[00:55] Büroassistentin: Alles klar — Rechnung raus, Kontrolltermin Legionellen in vier Wochen, Flexschläuche bestellen, Montagetermin für die Schläuche.`,
+[00:42] Büroassistentin: Verstanden — ein Thema Legionellenprüfung, die nächsten Schritte sind Unterpunkte davon.`,
   },
   {
     id: "leitungsrohrbruch",
-    patterns: ["leitungsrohrbruch", "leitungs austausch", "leitungsaustausch", "rohrbruch"],
-    transcript: `[00:00] Handwerker: Update vom Einsatz Weißenburger Straße — Leitungsrohrbruch im Keller, Kupferrohr an der T-Stückung undicht, Wasserschaden begrenzt.
+    patterns: [
+      "leitungsrohrbruch",
+      "leitungsrohr",
+      "leitungs austausch",
+      "leitungsaustausch",
+      "leitung austauschen",
+      "leitungaustauschen",
+      "leitungaustausch",
+      "rohrbruch",
+      "leitungssystem",
+      "neuverlegung",
+      "kellerleitung",
+      "heizungsrohr",
+      "heizungsleitung",
+      "heizung",
+      "heating",
+      "pipe",
+      "pipes",
+      "kupferrohr",
+    ],
+    transcript: `[00:00] Handwerker: Einsatz Grundschule Weißenburger Straße — Leitungsrohrbruch im Keller, die Hauptleitung ist gebrochen, Wasser ist ausgetreten.
 
-[00:10] Büroassistentin: Was ist der Plan?
+[00:10] Büroassistentin: Wie groß ist der Schaden?
 
-[00:12] Handwerker: Hauptaufgabe Leitungsaustausch — das betroffene Kupferrohr komplett tauschen. Dafür brauchen wir neues Rohrmaterial: Kupferrohr, Pressfittinge, Dichtungen, alles über Bär und Ollenroth.
+[00:12] Handwerker: Separate Hauptaufgabe: komplett neues Leitungssystem in der Schule verlegen, weil die Leitung gebrochen ist. Nicht nur flicken — Neuverlegung der Kellerleitung.
 
-[00:26] Handwerker: Bitte E-Mail an Frau Schneider schicken — Terminbestätigung und Ablauf des Leitungsaustauschs. Und Kalendereinladung an sie für Donnerstag vormittag acht Uhr, Dauer circa drei Stunden.
+[00:24] Handwerker: Unter dieser einen Leitungs-Aufgabe: Material bei Bär und Ollenroth bestellen — Kupferrohr, Pressfittinge, Dichtungen — E-Mail an Schulleitung Frau Schneider mit Ablauf schicken, und Kalendereinladung für Donnerstag vormittag acht Uhr, Dauer drei Stunden.
 
-[00:40] Büroassistentin: Material also bestellen und Termin fix?
-
-[00:42] Handwerker: Ja — Material für den Leitungsrohrbruch bestellen, E-Mail raus, Kalendereinladung verschicken, Donnerstag Leitung austauschen.`,
+[00:38] Büroassistentin: Alles klar — ein Thema neues Leitungssystem, Rest sind Folgeschritte.`,
   },
 ];
+
+export const DEMO_SCRIPT_IDS = DEMO_VIDEO_SCRIPTS.map((script) => script.id);
+
+function normalizeHaystack(value: string): string {
+  return value.toLowerCase().replace(/[_-]+/g, " ");
+}
+
+function scriptById(id: string): DemoVideoScript | undefined {
+  return DEMO_VIDEO_SCRIPTS.find((script) => script.id === id);
+}
+
+function matchesAnyPattern(haystack: string, patterns: string[]): boolean {
+  const normalized = normalizeHaystack(haystack);
+  return patterns.some((pattern) => normalized.includes(normalizeHaystack(pattern)));
+}
+
+/**
+ * Match demo script by video title / R2 key only — never by selection index.
+ * Pipe/rohr signals win over legionellen when both could match.
+ */
+export function matchDemoScript(haystack: string): DemoVideoScript | null {
+  const legionellen = scriptById("legionellen-pruefung");
+  const leitungsrohrbruch = scriptById("leitungsrohrbruch");
+  if (!legionellen || !leitungsrohrbruch) return null;
+
+  const matchesLeitung = matchesAnyPattern(haystack, leitungsrohrbruch.patterns);
+  const matchesLegionellen = matchesAnyPattern(haystack, legionellen.patterns);
+
+  if (matchesLeitung && !matchesLegionellen) return leitungsrohrbruch;
+  if (matchesLegionellen && !matchesLeitung) return legionellen;
+  if (matchesLeitung) return leitungsrohrbruch;
+
+  return matchesLegionellen ? legionellen : null;
+}
+
+export function isDemoScriptId(value: string): value is (typeof DEMO_VIDEO_SCRIPTS)[number]["id"] {
+  return DEMO_SCRIPT_IDS.includes(value);
+}
 
 /** Legacy index fallback when title matching finds no script. */
 export const DEMO_TRANSCRIPTS = DEMO_VIDEO_SCRIPTS.map((script) => script.transcript);
 
-export function matchDemoScript(haystack: string): DemoVideoScript | null {
-  const normalized = haystack.toLowerCase();
-  return (
-    DEMO_VIDEO_SCRIPTS.find((script) =>
-      script.patterns.some((pattern) => normalized.includes(pattern.toLowerCase())),
-    ) ?? null
-  );
+export function getDemoScriptByIndex(index: number): DemoVideoScript {
+  const normalized =
+    ((index % DEMO_VIDEO_SCRIPTS.length) + DEMO_VIDEO_SCRIPTS.length) % DEMO_VIDEO_SCRIPTS.length;
+  return DEMO_VIDEO_SCRIPTS[normalized];
 }
 
 export function getDemoTranscript(index: number): string {
-  const normalized =
-    ((index % DEMO_TRANSCRIPTS.length) + DEMO_TRANSCRIPTS.length) % DEMO_TRANSCRIPTS.length;
-  return DEMO_TRANSCRIPTS[normalized];
+  return getDemoScriptByIndex(index).transcript;
 }

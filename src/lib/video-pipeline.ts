@@ -1,5 +1,6 @@
 import { planActionsForTasks } from "@/lib/actions/planner";
 import { simulateGeminiTranscriptionDelay } from "@/lib/demo/config";
+import { parseDemoTopicTasks } from "@/lib/demo/tasks";
 import { getConnectedGmailAddress } from "@/lib/google/gmail";
 import { extractServiceTasks } from "@/lib/pioneer";
 import { parsePioneerTasks, enrichTasksWithPioneerData, type Task } from "@/lib/tasks";
@@ -44,6 +45,38 @@ async function runPioneerAndPlan(
   };
 }
 
+async function runDemoPioneerAndPlan(
+  transcript: string,
+  userId: string,
+  source: string,
+  demoScriptId: string,
+): Promise<Pick<VideoAnalysisResult, "tasks" | "transcript" | "source">> {
+  const pioneerResult = await extractServiceTasks(transcript);
+  const pioneerData = pioneerResult.data;
+  const tasks = parseDemoTopicTasks(demoScriptId, pioneerData);
+
+  const defaultEmail = await getConnectedGmailAddress(userId).catch(() => null);
+  let plannedTasks = tasks;
+
+  try {
+    plannedTasks = enrichTasksWithPioneerData(
+      pioneerData,
+      await planActionsForTasks(tasks, {
+        transcript,
+        defaultEmail,
+      }),
+    );
+  } catch {
+    plannedTasks = enrichTasksWithPioneerData(pioneerData, tasks);
+  }
+
+  return {
+    tasks: plannedTasks,
+    transcript,
+    source,
+  };
+}
+
 export async function analyzeVideoTranscript(
   transcript: string,
   userId: string,
@@ -51,17 +84,22 @@ export async function analyzeVideoTranscript(
     source?: string;
     simulateTranscriptionDelay?: boolean;
     demo?: boolean;
+    demoScriptId?: string;
   },
 ): Promise<VideoAnalysisResult> {
   if (options?.simulateTranscriptionDelay) {
     await simulateGeminiTranscriptionDelay();
   }
 
-  const result = await runPioneerAndPlan(
-    transcript,
-    userId,
-    options?.source ?? "transcript",
-  );
+  const result =
+    options?.demoScriptId != null
+      ? await runDemoPioneerAndPlan(
+          transcript,
+          userId,
+          options?.source ?? "transcript",
+          options.demoScriptId,
+        )
+      : await runPioneerAndPlan(transcript, userId, options?.source ?? "transcript");
 
   return {
     ...result,

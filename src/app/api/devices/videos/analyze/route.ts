@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveDemoTranscript } from "@/lib/demo/config";
+import { resolveDemoScript } from "@/lib/demo/config";
 import { getSessionUser } from "@/lib/auth/session";
 import { getDeviceForUser } from "@/lib/devices/repository";
 import { fetchR2VideoFile, isR2Configured, isUserOwnedR2Key } from "@/lib/r2/client";
@@ -18,7 +18,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as { key?: string; demoIndex?: number; title?: string };
+    const body = (await request.json()) as {
+      key?: string;
+      demoIndex?: number;
+      title?: string;
+      usedScriptIds?: string[];
+    };
     const key = body.key?.trim();
 
     if (!key) {
@@ -35,22 +40,26 @@ export async function POST(request: Request) {
     }
 
     const demoIndex = typeof body.demoIndex === "number" ? body.demoIndex : 0;
-    const demoTranscript = resolveDemoTranscript({
+    const resolved = resolveDemoScript({
       key,
       title: body.title,
       demoIndex,
+      usedScriptIds: body.usedScriptIds,
     });
 
-    if (demoTranscript) {
-      const result = await analyzeVideoTranscript(demoTranscript, user.id, {
+    if (resolved) {
+      const result = await analyzeVideoTranscript(resolved.transcript, user.id, {
         source: "demo-gemini",
         simulateTranscriptionDelay: true,
         demo: true,
+        demoScriptId: resolved.scriptId,
       });
 
       return NextResponse.json({
         key,
         title: key.split("/").pop() ?? "Demo video",
+        scriptId: resolved.scriptId,
+        matchedBy: resolved.matchedBy,
         ...result,
       });
     }

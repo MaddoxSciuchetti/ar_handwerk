@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Glasses, Loader2, Play, Trash2, X } from "lucide-react";
 import { SUPPORTED_DEVICES } from "@/lib/devices/catalog";
 import type { DeviceRecord, DeviceSetupInput, DeviceType, SyncPreference } from "@/lib/devices/types";
+import { getDemoTopicTitle, parseDemoTopicTasks } from "@/lib/demo/tasks";
+import { isDemoScriptId } from "@/lib/demo/transcripts";
 import type { Task } from "@/lib/tasks";
-import { enrichTasksWithPioneerData, parsePioneerTasks } from "@/lib/tasks";
+import { enrichTasksWithPioneerData } from "@/lib/tasks";
 
 type DeviceVideo = {
   id: string;
@@ -331,6 +333,7 @@ export function DeviceView({
     setAnalyzeStage("transcribe");
 
     const allTasks: Task[] = [];
+    const usedDemoScriptIds: string[] = [];
 
     try {
       for (let index = 0; index < selectedVideos.length; index += 1) {
@@ -343,10 +346,16 @@ export function DeviceView({
           const transcriptResponse = await fetch("/api/devices/videos/demo-transcript", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key: video.id, demoIndex: index, title: video.title }),
+            body: JSON.stringify({
+              key: video.id,
+              demoIndex: index,
+              title: video.title,
+              usedScriptIds: usedDemoScriptIds,
+            }),
           });
           const transcriptData = (await transcriptResponse.json()) as {
             transcript?: string;
+            scriptId?: string;
             error?: string;
           };
           if (!transcriptResponse.ok) {
@@ -354,6 +363,13 @@ export function DeviceView({
           }
 
           const transcript = transcriptData.transcript ?? "";
+          const scriptId = transcriptData.scriptId;
+          if (!scriptId || !isDemoScriptId(scriptId)) {
+            throw new Error(
+              `No demo script matched "${video.title}". Rename the file to include Legionellen or Leitungsrohrbruch.`,
+            );
+          }
+          usedDemoScriptIds.push(scriptId);
           setAnalyzeStage("pioneer");
 
           const analyzeResponse = await fetch("/api/analyze", {
@@ -368,7 +384,7 @@ export function DeviceView({
             throw new Error(pioneerData.error ?? `Failed to analyze ${video.title}`);
           }
 
-          const tasks = parsePioneerTasks(pioneerData);
+          const tasks = parseDemoTopicTasks(scriptId, pioneerData);
           setAnalyzeStage("plan");
 
           const planResponse = await fetch("/api/tasks/plan", {
@@ -384,23 +400,32 @@ export function DeviceView({
             throw new Error(planData.error ?? `Failed to plan actions for ${video.title}`);
           }
 
+          const demoTitle = getDemoTopicTitle(scriptId);
           const plannedTasks = (
             Array.isArray(planData.tasks) && planData.tasks.length > 0
               ? enrichTasksWithPioneerData(pioneerData, planData.tasks)
               : enrichTasksWithPioneerData(pioneerData, tasks)
+          ).map((task) =>
+            demoTitle ? { ...task, title: demoTitle } : task,
           ) as Task[];
 
-          allTasks.push(...plannedTasks);
+          allTasks.push(...plannedTasks.slice(0, 1));
           continue;
         }
 
         const response = await fetch("/api/devices/videos/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: video.id, demoIndex: index, title: video.title }),
+          body: JSON.stringify({
+            key: video.id,
+            demoIndex: index,
+            title: video.title,
+            usedScriptIds: usedDemoScriptIds,
+          }),
         });
         const data = (await response.json()) as {
           tasks?: Task[];
+          scriptId?: string;
           error?: string;
         };
 
@@ -408,7 +433,11 @@ export function DeviceView({
           throw new Error(data.error ?? `Failed to analyze ${video.title}`);
         }
 
-        allTasks.push(...(data.tasks ?? []));
+        if (data.scriptId && isDemoScriptId(data.scriptId)) {
+          usedDemoScriptIds.push(data.scriptId);
+        }
+
+        allTasks.push(...(data.tasks ?? []).slice(0, 1));
       }
 
       setTasksCreated(allTasks.length);

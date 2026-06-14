@@ -70,6 +70,7 @@ export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate, onTa
 
             {selectedTask ? (
               <TaskWidget
+                key={selectedTask.id}
                 task={selectedTask}
                 googleConnected={googleConnected}
                 keyboardEnabled

@@ -34,6 +34,12 @@ type PlanTaskOptions = {
     defaultEmail?: string | null;
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isLikelyEmail(value: string | undefined | null): boolean {
+    return Boolean(value && EMAIL_PATTERN.test(value.trim()));
+}
+
 function buildSystemPrompt(): string {
     const catalog = getDemoCatalogForPrompt();
     return `You are an action planner for a German field-service (handyman) task app.
@@ -47,6 +53,7 @@ Given a task, produce JSON with exactly this shape:
 
 Rules:
 - Always include email, calendar, and price (3 core actions).
+- email.to MUST be a valid email address (e.g. name@example.com). Use the provided defaultEmail when no explicit recipient address is known. Never put a person's name in email.to — names belong in the salutation of email.body.
 - price.query must always be set; infer from material/equipment/title if no explicit item.
 - demoIntegrations: pick 1-3 from this catalog only (never gmail or google-calendar):
 ${JSON.stringify(catalog, null, 2)}
@@ -54,7 +61,7 @@ ${JSON.stringify(catalog, null, 2)}
 - Return ONLY valid JSON, no markdown.`;
 }
 
-function buildUserPrompt(task: Task, transcript?: string): string {
+function buildUserPrompt(task: Task, transcript?: string, defaultEmail?: string | null): string {
     const { start, end } = defaultEventWindow(task.deadline);
     const excerpt = transcript?.trim().slice(0, 1500);
 
@@ -71,6 +78,7 @@ ${JSON.stringify(
         equipment: task.equipment,
         suggestedCalendarStart: start.toISOString(),
         suggestedCalendarEnd: end.toISOString(),
+        defaultEmail: defaultEmail ?? undefined,
     },
     null,
     2,
@@ -110,7 +118,7 @@ function sanitizePlannerOutput(
 
     return {
         email: {
-            to: email.to?.trim() || fallback.email.to,
+            to: isLikelyEmail(email.to) ? email.to!.trim() : fallback.email.to,
             subject: email.subject?.trim() || fallback.email.subject,
             body: email.body?.trim() || fallback.email.body,
             title: email.title?.trim() || fallback.email.title,
@@ -152,7 +160,7 @@ export async function planActionsForTask(
 
     try {
         const raw = await callFalLlm(
-            buildUserPrompt(task, options?.transcript),
+            buildUserPrompt(task, options?.transcript, options?.defaultEmail),
             buildSystemPrompt(),
         );
         const parsed = extractJsonFromLlm(raw);

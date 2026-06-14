@@ -62,6 +62,14 @@ export function ActionFlow({
   );
   const swipeRef = useRef<SwipeableCardHandle>(null);
 
+  useEffect(() => {
+    setEmailDraft(task.proposedActions?.find((a) => a.type === "email")?.emailDraft);
+    setCalendarDraft(task.proposedActions?.find((a) => a.type === "calendar")?.calendarDraft);
+    setPriceReady(false);
+    setError(null);
+    setLoading(false);
+  }, [task.id, task.proposedActions]);
+
   const actions = task.proposedActions ?? [];
   const step = task.actionFlowStep ?? 0;
   const current = actions[step];
@@ -245,9 +253,6 @@ export function ActionFlow({
         <h4 className="mb-2 shrink-0 text-[14px] font-semibold leading-normal text-zinc-900">
           {current?.title}
         </h4>
-        {current?.reasoning ? (
-          <p className="mb-3 shrink-0 text-[11px] leading-relaxed text-zinc-500">{current.reasoning}</p>
-        ) : null}
         {current ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <ActionCardContent

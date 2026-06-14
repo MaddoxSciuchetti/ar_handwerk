@@ -1,4 +1,8 @@
-import { getDemoTranscript, matchDemoScript } from "@/lib/demo/transcripts";
+import {
+  DEMO_VIDEO_SCRIPTS,
+  getDemoScriptByIndex,
+  matchDemoScript,
+} from "@/lib/demo/transcripts";
 import { getVideoTitleFromR2Key } from "@/lib/r2/client";
 
 const MIN_TRANSCRIPTION_DELAY_MS = 10_000;
@@ -8,22 +12,57 @@ export function isDemoVideoModeEnabled(): boolean {
   return process.env.DEMO_VIDEO_MODE === "true";
 }
 
-export function resolveDemoTranscript(input: {
+function demoHaystack(input: { key?: string; title?: string }): string {
+  const title = input.title?.trim() || (input.key ? getVideoTitleFromR2Key(input.key) : "");
+  return `${title} ${input.key ?? ""}`.trim();
+}
+
+function pickUnusedDemoScript(
+  used: Set<string>,
+  demoIndex: number,
+): (typeof DEMO_VIDEO_SCRIPTS)[number] {
+  const remaining = DEMO_VIDEO_SCRIPTS.filter((script) => !used.has(script.id));
+  if (remaining.length > 0) return remaining[0];
+
+  return getDemoScriptByIndex(demoIndex);
+}
+
+export function resolveDemoScript(input: {
   key?: string;
   title?: string;
   demoIndex?: number;
-}): string | null {
+  usedScriptIds?: string[];
+}): { scriptId: string; transcript: string; matchedBy: "title" | "index" } | null {
   if (!isDemoVideoModeEnabled()) return null;
 
-  const title = input.title?.trim() || (input.key ? getVideoTitleFromR2Key(input.key) : "");
-  const haystack = `${title} ${input.key ?? ""}`.trim();
+  const used = new Set(input.usedScriptIds ?? []);
+  const demoIndex = input.demoIndex ?? 0;
+  const haystack = demoHaystack(input);
 
   if (haystack) {
     const matched = matchDemoScript(haystack);
-    if (matched) return matched.transcript;
+    // Title match only when this script is not already assigned to another video in the batch.
+    if (matched && !used.has(matched.id)) {
+      return { scriptId: matched.id, transcript: matched.transcript, matchedBy: "title" };
+    }
   }
 
-  return getDemoTranscript(input.demoIndex ?? 0);
+  // Opaque or duplicate filenames: assign the next unused script in stable order.
+  const fallback = pickUnusedDemoScript(used, demoIndex);
+  return { scriptId: fallback.id, transcript: fallback.transcript, matchedBy: "index" };
+}
+
+export function resolveDemoScriptOrThrow(input: {
+  key?: string;
+  title?: string;
+  demoIndex?: number;
+  usedScriptIds?: string[];
+}): { scriptId: string; transcript: string; matchedBy: "title" | "index" } {
+  const resolved = resolveDemoScript(input);
+  if (!resolved) {
+    throw new Error("Demo video mode is not enabled.");
+  }
+  return resolved;
 }
 
 /** Simulates Gemini multimodal transcription latency for demo recordings. */

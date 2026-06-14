@@ -9,6 +9,12 @@ export type EmailDraft = {
   body: string;
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isLikelyEmail(value: string | undefined | null): boolean {
+  return Boolean(value && EMAIL_PATTERN.test(value.trim()));
+}
+
 function buildTaskEmailBody(task: Task): string {
   const lines = [
     `Task: ${task.title}`,
@@ -29,9 +35,12 @@ export async function sendTaskEmail(
   overrides?: Partial<EmailDraft> & { toEmail?: string },
 ) {
   const tokens = getGoogleTokens(userId);
-  const recipient = overrides?.to?.trim() || overrides?.toEmail?.trim() || tokens?.email;
+  const requested = overrides?.to?.trim() || overrides?.toEmail?.trim();
+  // Drafts can carry a person's name (e.g. "Frau Schneider") rather than an
+  // address; fall back to the connected account so Gmail does not reject the header.
+  const recipient = isLikelyEmail(requested) ? requested : tokens?.email;
   if (!recipient) {
-    throw new Error("No recipient email available. Connect Google or provide an address.");
+    throw new Error("No valid recipient email available. Connect Google or enter an address.");
   }
 
   const subject = overrides?.subject?.trim() || `Field task: ${task.title}`;

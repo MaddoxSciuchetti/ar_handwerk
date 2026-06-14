@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { getDeviceForUser } from "@/lib/devices/repository";
 import {
   isDemoVideoModeEnabled,
-  resolveDemoTranscript,
+  resolveDemoScript,
   simulateGeminiTranscriptionDelay,
 } from "@/lib/demo/config";
 import { isR2Configured, isUserOwnedR2Key } from "@/lib/r2/client";
@@ -26,7 +26,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as { key?: string; demoIndex?: number; title?: string };
+    const body = (await request.json()) as {
+      key?: string;
+      demoIndex?: number;
+      title?: string;
+      usedScriptIds?: string[];
+    };
     const key = body.key?.trim();
 
     if (!key) {
@@ -43,13 +48,14 @@ export async function POST(request: Request) {
     }
 
     const demoIndex = typeof body.demoIndex === "number" ? body.demoIndex : 0;
-    const transcript = resolveDemoTranscript({
+    const resolved = resolveDemoScript({
       key,
       title: body.title,
       demoIndex,
+      usedScriptIds: body.usedScriptIds,
     });
 
-    if (!transcript) {
+    if (!resolved) {
       return NextResponse.json({ error: "No demo transcript configured" }, { status: 404 });
     }
 
@@ -58,7 +64,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       key,
       title: body.title?.trim() || key.split("/").pop() || "Demo video",
-      transcript,
+      scriptId: resolved.scriptId,
+      matchedBy: resolved.matchedBy,
+      transcript: resolved.transcript,
       demo: true,
     });
   } catch (error) {
