@@ -47,6 +47,9 @@ pioneer/data/eval.jsonl
 # vercel
 .vercel
 
+# local persisted integration state
+.data/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

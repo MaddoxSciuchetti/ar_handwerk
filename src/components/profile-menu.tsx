@@ -1,33 +1,15 @@
 "use client";
 
 import { Menu } from "@base-ui-components/react/menu";
+import { ChevronDown } from "lucide-react";
+
+export const PROFILE_IMAGE_SRC = "/maddox.jpeg";
 
 export type ProfileUser = {
   name: string;
   role: string;
   initials: string;
 };
-
-function ChevronIcon({ open }: { open?: boolean }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      className={`shrink-0 text-zinc-400 transition-transform duration-150 group-hover:text-zinc-500 ${open ? "rotate-180" : ""}`}
-    >
-      <path
-        d="M6 9l6 6 6-6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 type ProfileMenuProps = {
   collapsed: boolean;
@@ -45,21 +27,20 @@ export function ProfileMenu({ collapsed, user, onOpenSettings, onSignOut }: Prof
           collapsed ? "justify-center p-1.5" : "gap-2 px-2 py-1.5"
         }`}
       >
-        <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[10px] font-semibold text-zinc-700 ring-1 ring-zinc-200/80">
-          {user.initials}
-          <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-white bg-emerald-500" />
-        </span>
+        <ProfileAvatar alt={user.name} showStatus />
         {!collapsed && (
           <>
             <span className="min-w-0 flex-1 text-left">
               <span className="block truncate text-[12px] font-medium leading-tight text-zinc-900">
                 {user.name}
               </span>
-              <span className="block truncate text-[11px] leading-tight text-zinc-400">
-                {user.role}
-              </span>
             </span>
-            <ChevronIcon />
+            <ChevronDown
+              size={12}
+              strokeWidth={2}
+              aria-hidden
+              className="shrink-0 text-zinc-400 transition-transform duration-150 group-hover:text-zinc-500 group-data-[popup-open]:rotate-180"
+            />
           </>
         )}
       </Menu.Trigger>
@@ -124,4 +105,27 @@ export function profileUserFromSession(user: { name: string; email: string }): P
     role: "Demo account",
     initials,
   };
+}
+
+export function ProfileAvatar({
+  alt,
+  size = "sm",
+  showStatus = false,
+}: {
+  alt: string;
+  size?: "sm" | "lg";
+  showStatus?: boolean;
+}) {
+  const sizeClass = size === "lg" ? "h-12 w-12" : "h-6 w-6";
+
+  return (
+    <span
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/80 ${sizeClass}`}
+    >
+      <img src={PROFILE_IMAGE_SRC} alt={alt} className="h-full w-full object-cover" />
+      {showStatus ? (
+        <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-white bg-emerald-500" />
+      ) : null}
+    </span>
+  );
 }

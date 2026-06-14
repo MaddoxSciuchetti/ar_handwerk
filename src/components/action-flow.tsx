@@ -1,272 +1,430 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Check } from "lucide-react";
+import { ActionCardContent } from "@/components/action-cards/action-card-content";
+import { SwipeableCard, type SwipeableCardHandle } from "@/components/swipeable-card";
 import type { ProposedAction } from "@/lib/actions/types";
-import { ActionStepProgress } from "@/components/action-step-progress";
-import { CalendarActionCard } from "@/components/action-cards/calendar-action-card";
-import { DemoIntegrationCard } from "@/components/action-cards/demo-integration-card";
-import { EmailActionCard } from "@/components/action-cards/email-action-card";
-import { PriceActionCard } from "@/components/action-cards/price-action-card";
 import type { TaskActionResult } from "@/lib/integrations/types";
 import type { Task } from "@/lib/tasks";
 
 type ActionFlowProps = {
   task: Task;
   googleConnected?: boolean;
+  keyboardEnabled?: boolean;
+  variant?: "default" | "focus";
   onTaskUpdate?: (task: Task) => void;
 };
 
-function allActionsResolved(actions: ProposedAction[], step: number): boolean {
-  return step >= actions.length;
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
-function patchAction(
-  task: Task,
-  actionId: string,
-  patch: Partial<ProposedAction>,
-): ProposedAction[] {
-  return (task.proposedActions ?? []).map((action) =>
-    action.id === actionId ? { ...action, ...patch } : action,
+function patchAction(task: Task, actionId: string, patch: Partial<ProposedAction>) {
+  return (task.proposedActions ?? []).map((a) =>
+    a.id === actionId ? { ...a, ...patch } : a,
   );
 }
 
-export function ActionFlow({ task, googleConnected, onTaskUpdate }: ActionFlowProps) {
+function ActionStepShell({
+  isFocus,
+  className = "",
+  children,
+}: {
+  isFocus: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (isFocus) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return <div className={`action-step-card flex min-h-0 flex-col p-4 ${className}`.trim()}>{children}</div>;
+}
+
+export function ActionFlow({
+  task,
+  googleConnected,
+  keyboardEnabled,
+  variant = "default",
+  onTaskUpdate,
+}: ActionFlowProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [priceAwaitingContinue, setPriceAwaitingContinue] = useState(false);
+  const [priceReady, setPriceReady] = useState(false);
+  const [emailDraft, setEmailDraft] = useState(
+    () => task.proposedActions?.find((a) => a.type === "email")?.emailDraft,
+  );
   const [calendarDraft, setCalendarDraft] = useState(
     () => task.proposedActions?.find((a) => a.type === "calendar")?.calendarDraft,
   );
+  const swipeRef = useRef<SwipeableCardHandle>(null);
+
+  useEffect(() => {
+    setEmailDraft(task.proposedActions?.find((a) => a.type === "email")?.emailDraft);
+    setCalendarDraft(task.proposedActions?.find((a) => a.type === "calendar")?.calendarDraft);
+    setPriceReady(false);
+    setError(null);
+    setLoading(false);
+  }, [task.id, task.proposedActions]);
 
   const actions = task.proposedActions ?? [];
   const step = task.actionFlowStep ?? 0;
-  const currentAction = actions[step];
+  const current = actions[step];
+  const done = step >= actions.length;
 
   const advance = useCallback(
-    (updatedActions: ProposedAction[]) => {
-      onTaskUpdate?.({
-        ...task,
-        proposedActions: updatedActions,
-        actionFlowStep: step + 1,
-      });
-      setPriceAwaitingContinue(false);
+    (updated: ProposedAction[]) => {
+      onTaskUpdate?.({ ...task, proposedActions: updated, actionFlowStep: step + 1 });
+      setPriceReady(false);
       setError(null);
     },
     [onTaskUpdate, step, task],
   );
 
-  const rejectCurrent = useCallback(() => {
-    if (!currentAction) return;
-    const updated = patchAction(task, currentAction.id, { status: "rejected" });
-    advance(updated);
-  }, [advance, currentAction, task]);
+  const reject = useCallback(() => {
+    if (!current) return;
+    advance(patchAction(task, current.id, { status: "rejected" }));
+  }, [advance, current, task]);
 
-  const completeDemo = useCallback(() => {
-    if (!currentAction) return;
-    const updated = patchAction(task, currentAction.id, { status: "done" });
-    advance(updated);
-  }, [advance, currentAction, task]);
+  const skip = useCallback(() => {
+    if (!current || loading) return;
+    advance(patchAction(task, current.id, { status: "skipped" }));
+  }, [advance, current, loading, task]);
 
-  const acceptEmail = useCallback(async () => {
-    if (!currentAction?.emailDraft) return;
+  const accept = useCallback(async () => {
+    if (!current) return;
+
+    if (current.type === "price_search" && priceReady) {
+      advance(task.proposedActions ?? []);
+      return;
+    }
+
+    if (current.type === "demo_integration") {
+      advance(patchAction(task, current.id, { status: "done" }));
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    try {
-      const draft = currentAction.emailDraft;
-      const response = await fetch("/api/tasks/actions/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task,
-          to: draft.to,
-          subject: draft.subject,
-          body: draft.body,
-        }),
-      });
-      const data = (await response.json()) as TaskActionResult & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Email failed");
 
-      const updated = patchAction(task, currentAction.id, {
-        status: "done",
-        executionResult: {
-          ...task.integrations,
-          gmailMessageId: data.gmailMessageId,
-        },
-      });
-      onTaskUpdate?.({
-        ...task,
-        integrations: { ...task.integrations, gmailMessageId: data.gmailMessageId },
-        proposedActions: updated,
-        actionFlowStep: step + 1,
-      });
+    try {
+      if (current.type === "email" && current.emailDraft) {
+        const draft = emailDraft ?? current.emailDraft;
+        const res = await fetch("/api/tasks/actions/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ task, to: draft.to, subject: draft.subject, body: draft.body }),
+        });
+        const data = (await res.json()) as TaskActionResult & { error?: string };
+        if (!res.ok) throw new Error(data.error ?? "Email failed");
+
+        const updated = patchAction(task, current.id, { status: "done" });
+        onTaskUpdate?.({
+          ...task,
+          integrations: { ...task.integrations, gmailMessageId: data.gmailMessageId },
+          proposedActions: updated,
+          actionFlowStep: step + 1,
+        });
+        setError(null);
+        return;
+      }
+
+      if (current.type === "calendar") {
+        const draft = calendarDraft ?? current.calendarDraft;
+        if (!draft) {
+          throw new Error("Calendar details are missing for this action");
+        }
+
+        const res = await fetch("/api/tasks/actions/calendar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            task,
+            summary: draft.summary,
+            location: draft.location,
+            start: draft.start,
+            end: draft.end,
+            description: draft.description,
+          }),
+        });
+        const data = (await res.json()) as TaskActionResult & { error?: string };
+        if (!res.ok) throw new Error(data.error ?? "Calendar failed");
+
+        const updated = patchAction(task, current.id, { status: "done" });
+        onTaskUpdate?.({
+          ...task,
+          integrations: {
+            ...task.integrations,
+            calendarEventId: data.calendarEventId,
+            calendarLink: data.calendarLink,
+            calendarAccount: data.calendarAccount ?? task.integrations?.calendarAccount,
+            calendarStart: data.calendarStart ?? draft.start ?? undefined,
+            calendarEnd: data.calendarEnd ?? draft.end ?? undefined,
+            calendarSummary: draft.summary,
+            calendarLocation: draft.location,
+          },
+          proposedActions: updated,
+          actionFlowStep: step + 1,
+        });
+        return;
+      }
+
+      if (current.type === "price_search" && current.priceDraft) {
+        const res = await fetch("/api/tasks/actions/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ task, query: current.priceDraft.query }),
+        });
+        const data = (await res.json()) as TaskActionResult & { error?: string };
+        if (!res.ok) throw new Error(data.error ?? "Search failed");
+        if (!data.purchaseSearch) throw new Error("No results");
+
+        const updated = patchAction(task, current.id, {
+          status: "done",
+          executionResult: { purchaseSearch: data.purchaseSearch },
+        });
+        onTaskUpdate?.({
+          ...task,
+          integrations: { ...task.integrations, purchaseSearch: data.purchaseSearch },
+          proposedActions: updated,
+        });
+        setPriceReady(true);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Email failed");
+      setError(err instanceof Error ? err.message : "Action failed");
     } finally {
       setLoading(false);
     }
-  }, [currentAction, onTaskUpdate, step, task]);
+  }, [
+    advance,
+    calendarDraft,
+    current,
+    emailDraft,
+    onTaskUpdate,
+    priceReady,
+    step,
+    task,
+  ]);
 
-  const acceptCalendar = useCallback(async () => {
-    const draft = calendarDraft ?? currentAction?.calendarDraft;
-    if (!currentAction || !draft) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/tasks/actions/calendar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task,
-          summary: draft.summary,
-          location: draft.location,
-          start: draft.start,
-          end: draft.end,
-          description: draft.description,
-        }),
-      });
-      const data = (await response.json()) as TaskActionResult & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Calendar failed");
+  const needsGoogle =
+    Boolean(current) &&
+    (current.type === "email" || current.type === "calendar") &&
+    !googleConnected;
+  const acceptLabel =
+    current?.type === "price_search" && priceReady
+      ? "Continue"
+      : current?.type === "email"
+        ? "Send"
+        : "Accept";
+  const acceptDisabled = loading || needsGoogle;
+  const isFocus = variant === "focus";
+  const canSwipe = isFocus && !loading;
 
-      const updated = patchAction(task, currentAction.id, {
-        status: "done",
-        executionResult: {
-          ...task.integrations,
-          calendarEventId: data.calendarEventId,
-          calendarLink: data.calendarLink,
-          calendarStart: data.calendarStart ?? draft.start,
-          calendarEnd: data.calendarEnd ?? draft.end,
-          calendarSummary: draft.summary,
-          calendarLocation: draft.location,
-        },
-      });
-      onTaskUpdate?.({
-        ...task,
-        integrations: {
-          ...task.integrations,
-          calendarEventId: data.calendarEventId,
-          calendarLink: data.calendarLink,
-          calendarStart: data.calendarStart ?? draft.start,
-          calendarEnd: data.calendarEnd ?? draft.end,
-          calendarSummary: draft.summary,
-          calendarLocation: draft.location,
-        },
-        proposedActions: updated,
-        actionFlowStep: step + 1,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Calendar failed");
-    } finally {
-      setLoading(false);
+  const runFocusDecision = useCallback(
+    (direction: "left" | "right", action: () => void) => {
+      if (!isFocus) {
+        action();
+        return;
+      }
+
+      if (swipeRef.current?.isAnimating()) return;
+
+      swipeRef.current?.animateOut(direction, action);
+    },
+    [isFocus],
+  );
+
+  const triggerReject = useCallback(() => {
+    if (!current || loading) return;
+    runFocusDecision("left", () => reject());
+  }, [current, loading, reject, runFocusDecision]);
+
+  const triggerAccept = useCallback(() => {
+    if (!current || acceptDisabled) return;
+    runFocusDecision("right", () => void accept());
+  }, [accept, acceptDisabled, current, runFocusDecision]);
+
+  const actionBody = (
+    <>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-1 pt-1">
+        <h4 className="mb-2 shrink-0 text-[14px] font-semibold leading-normal text-zinc-900">
+          {current?.title}
+        </h4>
+        {current ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <ActionCardContent
+              action={current}
+              googleConnected={googleConnected}
+              emailDraft={emailDraft ?? current.emailDraft}
+              onEmailDraftChange={setEmailDraft}
+              calendarDraft={calendarDraft ?? current.calendarDraft}
+              onCalendarDraftChange={setCalendarDraft}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {error ? <p className="mt-2 shrink-0 text-[11px] text-red-800">{error}</p> : null}
+
+      <div
+        className={`mt-3 shrink-0 ${
+          isFocus ? "flex items-center justify-center gap-2 pt-1" : "grid grid-cols-3 gap-2"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={isFocus ? triggerReject : reject}
+          disabled={loading}
+          className={
+            isFocus
+              ? "flex h-9 w-9 items-center justify-center rounded-full border border-red-300 bg-white text-red-700 shadow-sm transition-colors hover:border-red-400 hover:bg-red-50 disabled:opacity-50"
+              : "flex items-center justify-center gap-2 rounded-full bg-red-700 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-red-800 disabled:opacity-50"
+          }
+          title="Reject"
+          aria-label="Reject"
+        >
+          {isFocus ? (
+            <span className="text-sm leading-none" aria-hidden>
+              ✕
+            </span>
+          ) : (
+            <>
+              Reject
+              <kbd className="rounded border border-white/25 bg-white/15 px-1.5 py-0.5 text-[10px] font-normal leading-none">
+                Q
+              </kbd>
+            </>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={skip}
+          disabled={loading}
+          title="Skip this action and move to the next one"
+          className={
+            isFocus
+              ? "flex h-8 min-w-8 items-center justify-center rounded-full border border-zinc-200 bg-white px-2 text-[10px] font-medium text-zinc-500 shadow-sm transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
+              : "focus-ring rounded-full border border-zinc-200 bg-white px-3 py-2.5 text-[11px] font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
+          }
+          aria-label="Skip"
+        >
+          {isFocus ? "Skip" : "Skip"}
+        </button>
+        <button
+          type="button"
+          onClick={() => (isFocus ? triggerAccept() : void accept())}
+          disabled={acceptDisabled}
+          className={
+            isFocus
+              ? "flex h-9 w-9 items-center justify-center rounded-full border border-emerald-300 bg-white text-emerald-700 shadow-sm transition-colors hover:border-emerald-400 hover:bg-emerald-50 disabled:opacity-50"
+              : "flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-800 disabled:opacity-50"
+          }
+          title={acceptLabel}
+          aria-label={acceptLabel}
+        >
+          {loading ? (
+            <span className="text-[10px] font-semibold">…</span>
+          ) : isFocus ? (
+            <span className="text-sm leading-none" aria-hidden>
+              ✓
+            </span>
+          ) : (
+            <>
+              {acceptLabel}
+              <kbd className="rounded border border-white/25 bg-white/15 px-1.5 py-0.5 text-[10px] font-normal leading-none">
+                Enter
+              </kbd>
+            </>
+          )}
+        </button>
+      </div>
+
+      {isFocus ? (
+        <p className="mt-2 shrink-0 text-center text-[10px] text-zinc-400">
+          Drag left to reject · drag right to accept
+        </p>
+      ) : null}
+    </>
+  );
+
+  useEffect(() => {
+    if (!keyboardEnabled || done || !current) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (isTypingTarget(event.target)) return;
+
+      if (event.key === "Enter") {
+        if (acceptDisabled) return;
+        event.preventDefault();
+        if (isFocus) triggerAccept();
+        else void accept();
+        return;
+      }
+
+      if (event.key === "q" || event.key === "Q") {
+        if (loading) return;
+        event.preventDefault();
+        if (isFocus) triggerReject();
+        else reject();
+      }
     }
-  }, [calendarDraft, currentAction, onTaskUpdate, step, task]);
 
-  const acceptPrice = useCallback(async () => {
-    if (!currentAction?.priceDraft) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/tasks/actions/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task, query: currentAction.priceDraft.query }),
-      });
-      const data = (await response.json()) as TaskActionResult & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Search failed");
-      if (!data.purchaseSearch) throw new Error("No search results returned");
-
-      const updated = patchAction(task, currentAction.id, {
-        status: "done",
-        executionResult: { purchaseSearch: data.purchaseSearch },
-      });
-      onTaskUpdate?.({
-        ...task,
-        integrations: { ...task.integrations, purchaseSearch: data.purchaseSearch },
-        proposedActions: updated,
-      });
-      setPriceAwaitingContinue(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Search failed");
-    } finally {
-      setLoading(false);
-    }
-  }, [currentAction, onTaskUpdate, task]);
-
-  const continueAfterPrice = useCallback(() => {
-    if (!currentAction) return;
-    advance(task.proposedActions ?? []);
-  }, [advance, currentAction, task.proposedActions]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [accept, acceptDisabled, current, done, isFocus, keyboardEnabled, loading, reject, skip, triggerAccept, triggerReject]);
 
   if (actions.length === 0) {
     return (
-      <div className="border-t border-zinc-100 pt-2">
-        <div className="h-16 animate-pulse rounded-lg bg-zinc-100" />
-        <p className="mt-1.5 text-[11px] text-zinc-400">Planning actions…</p>
-      </div>
+      <ActionStepShell
+        isFocus={isFocus}
+        className={`items-center justify-center ${isFocus ? "h-full bg-white p-6 pt-10" : "min-h-[20rem]"}`}
+      >
+        <p className="text-[11px] text-zinc-400">Planning actions…</p>
+      </ActionStepShell>
     );
   }
 
-  if (allActionsResolved(actions, step)) {
+  if (done) {
     return (
-      <div className="border-t border-zinc-100 pt-2">
-        <ActionStepProgress actions={actions} currentStep={step} />
-        <p className="mt-2 rounded-md bg-emerald-50 px-2.5 py-2 text-[11px] font-medium text-emerald-700">
-          All actions complete
-        </p>
-      </div>
+      <ActionStepShell
+        isFocus={isFocus}
+        className={`items-center justify-center ${isFocus ? "h-full p-6 pt-10" : "min-h-[20rem]"}`}
+      >
+        <div className="flex items-center gap-2">
+          <Check size={18} strokeWidth={2.25} className="text-emerald-700" aria-hidden />
+          <p className="text-[12px] font-medium text-zinc-700">All actions complete</p>
+        </div>
+      </ActionStepShell>
     );
   }
 
-  if (!currentAction) return null;
+  if (!current) {
+    return <div className="min-h-[20rem] w-full" aria-hidden />;
+  }
+
+  if (isFocus) {
+    return (
+      <div className="flex h-full min-h-0 flex-col px-5 pb-5 pt-11">
+        <SwipeableCard
+          ref={swipeRef}
+          resetKey={current.id}
+          canSwipeLeft={canSwipe}
+          canSwipeRight={canSwipe && !acceptDisabled}
+          onSwipeLeft={() => reject()}
+          onSwipeRight={() => void accept()}
+        >
+          {actionBody}
+        </SwipeableCard>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-2 border-t border-zinc-100 pt-2">
-      <ActionStepProgress actions={actions} currentStep={step} />
-
-      {currentAction.type === "email" ? (
-        <EmailActionCard
-          action={currentAction}
-          googleConnected={googleConnected}
-          loading={loading}
-          onAccept={() => void acceptEmail()}
-          onReject={rejectCurrent}
-        />
-      ) : null}
-
-      {currentAction.type === "calendar" ? (
-        <CalendarActionCard
-          action={{
-            ...currentAction,
-            calendarDraft: calendarDraft ?? currentAction.calendarDraft,
-          }}
-          googleConnected={googleConnected}
-          loading={loading}
-          onAccept={() => void acceptCalendar()}
-          onReject={rejectCurrent}
-          onDraftChange={setCalendarDraft}
-        />
-      ) : null}
-
-      {currentAction.type === "price_search" ? (
-        <PriceActionCard
-          action={currentAction}
-          loading={loading}
-          onAccept={() => void acceptPrice()}
-          onReject={rejectCurrent}
-          showContinue={priceAwaitingContinue}
-          onContinue={continueAfterPrice}
-        />
-      ) : null}
-
-      {currentAction.type === "demo_integration" ? (
-        <DemoIntegrationCard
-          action={currentAction}
-          loading={loading}
-          onAccept={completeDemo}
-          onReject={rejectCurrent}
-        />
-      ) : null}
-
-      {error ? <p className="text-[11px] text-red-600">{error}</p> : null}
-    </div>
+    <ActionStepShell isFocus={isFocus} className="h-full flex-1">
+      {actionBody}
+    </ActionStepShell>
   );
 }

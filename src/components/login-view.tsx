@@ -47,8 +47,12 @@ export function LoginView({ onLogin }: LoginViewProps) {
   }
 
   return (
-    <div className="flex min-h-full flex-1 items-center justify-center bg-[var(--shell-bg)] px-4 py-10">
-      <div className="widget-card w-full max-w-sm">
+    <div className="relative flex min-h-dvh w-full flex-1 items-center justify-center overflow-hidden px-4 py-10">
+      <div
+        className="pointer-events-none absolute inset-0 bg-[url('/handwerker.jpeg')] bg-cover bg-center bg-no-repeat [background-size:140%]"
+        aria-hidden
+      />
+      <div className="widget-card relative z-10 w-full max-w-sm shadow-lg">
         <h1 className="page-title mb-4">Field Tasks</h1>
 
         <p className="mb-4 body-sm text-zinc-500">

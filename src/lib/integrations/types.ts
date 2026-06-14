@@ -12,6 +12,7 @@ export type TaskActionResult = {
   type: "calendar" | "gmail" | "purchase-search";
   calendarEventId?: string;
   calendarLink?: string | null;
+  calendarAccount?: string | null;
   calendarStart?: string;
   calendarEnd?: string;
   gmailMessageId?: string;

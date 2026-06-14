@@ -1,64 +1,223 @@
 "use client";
 
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  AlertTriangle,
+  Calendar,
+  Check,
+  Focus,
+  MapPin,
+  ShoppingCart,
+  Trash2,
+  User,
+  Wrench,
+} from "lucide-react";
+import { ActionFocusModal } from "@/components/action-focus-modal";
 import { ActionFlow } from "@/components/action-flow";
-import type { Task } from "@/lib/tasks";
+import { PioneerExtractionModal } from "@/components/pioneer-extraction-modal";
+import { getTaskDisplayAttributes, type Task } from "@/lib/tasks";
+
+type TaskPillProps = {
+  index: number;
+  task: Task;
+  selected: boolean;
+  onSelect: () => void;
+};
+
+export function TaskPill({ index, task, selected, onSelect }: TaskPillProps) {
+  const actions = task.proposedActions ?? [];
+  const step = task.actionFlowStep ?? 0;
+  const complete = actions.length > 0 && step >= actions.length;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      title={task.title}
+      className={`focus-ring inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+        selected
+          ? "border-zinc-900 bg-zinc-900 text-white shadow-sm"
+          : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+      }`}
+    >
+      {complete ? (
+        <Check
+          size={12}
+          strokeWidth={2.5}
+          className={selected ? "text-emerald-400" : "text-emerald-700"}
+          aria-hidden
+        />
+      ) : null}
+      Task {index}
+    </button>
+  );
+}
 
 type TaskWidgetProps = {
   task: Task;
   googleConnected?: boolean;
+  keyboardEnabled?: boolean;
   onTaskUpdate?: (task: Task) => void;
+  onTaskDelete?: (taskId: string) => void;
 };
 
-const STATUS_LABEL: Record<Task["status"], string> = {
-  pending: "Pending",
-  in_progress: "In progress",
-  done: "Done",
-};
+export function TaskWidget({
+  task,
+  googleConnected,
+  keyboardEnabled,
+  onTaskUpdate,
+  onTaskDelete,
+}: TaskWidgetProps) {
+  const [focusMode, setFocusMode] = useState(false);
+  const [pioneerOpen, setPioneerOpen] = useState(false);
+  const actions = task.proposedActions ?? [];
+  const step = task.actionFlowStep ?? 0;
+  const actionsPending = actions.length > 0 && step < actions.length;
+  const actionsComplete = actions.length > 0 && step >= actions.length;
 
-const STATUS_DOT: Record<Task["status"], string> = {
-  pending: "bg-amber-400",
-  in_progress: "bg-zinc-400",
-  done: "bg-emerald-500",
-};
+  useEffect(() => {
+    if (focusMode && actionsComplete) {
+      setFocusMode(false);
+    }
+  }, [actionsComplete, focusMode]);
 
-export function TaskWidget({ task, googleConnected, onTaskUpdate }: TaskWidgetProps) {
   return (
-    <article className="widget-card flex flex-col gap-2">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-[12px] font-semibold leading-snug tracking-tight text-zinc-900">
-          {task.title}
-        </h3>
-        <span className="flex shrink-0 items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600">
-          <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[task.status]}`} />
-          {STATUS_LABEL[task.status]}
-        </span>
-      </div>
+    <>
+      <article className="action-flow-card flex min-h-[36rem] w-full flex-col">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-black/[0.06] px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[15px] font-semibold leading-snug text-zinc-900">{task.title}</h2>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPioneerOpen(true)}
+                title="View Pioneer entity extraction"
+                aria-label="View Pioneer entity extraction"
+                className="focus-ring inline-flex h-5 min-w-5 items-center justify-center rounded border border-black/[0.08] px-1 font-mono text-[8px] font-semibold leading-none text-zinc-500 transition-colors hover:border-black/15 hover:text-zinc-700"
+              >
+                {"{}"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFocusMode(true)}
+                disabled={!actionsPending}
+                title={actionsPending ? "Review actions in focus mode" : "No actions left to review"}
+                className="focus-ring inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-[11px] font-medium text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Focus size={13} strokeWidth={1.75} aria-hidden />
+                Focus
+              </button>
+              {onTaskDelete ? (
+                <button
+                  type="button"
+                  onClick={() => onTaskDelete(task.id)}
+                  title="Delete task"
+                  aria-label="Delete task"
+                  className="focus-ring rounded-full p-2 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <TaskAttributePills task={task} />
+        </div>
 
-      {task.problem ? (
-        <p className="body-sm text-zinc-500">{task.problem}</p>
-      ) : null}
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-3">
+          <ActionFlow
+            task={task}
+            googleConnected={googleConnected}
+            keyboardEnabled={!focusMode && (keyboardEnabled ?? true)}
+            onTaskUpdate={onTaskUpdate}
+          />
+        </div>
+      </article>
 
-      <dl className="grid gap-1.5 body-sm">
-        {task.itemToBuy ? <Row label="To buy" value={task.itemToBuy} /> : null}
-        {task.assignee ? <Row label="Assignee" value={task.assignee} /> : null}
-        {task.location ? <Row label="Location" value={task.location} /> : null}
-        {task.deadline ? <Row label="Deadline" value={task.deadline} /> : null}
-      </dl>
+      <ActionFocusModal
+        open={focusMode && actionsPending}
+        title={task.title}
+        onClose={() => setFocusMode(false)}
+      >
+        <ActionFlow
+          task={task}
+          googleConnected={googleConnected}
+          keyboardEnabled={keyboardEnabled ?? true}
+          variant="focus"
+          onTaskUpdate={onTaskUpdate}
+        />
+      </ActionFocusModal>
 
-      <ActionFlow
+      <PioneerExtractionModal
+        open={pioneerOpen}
         task={task}
-        googleConnected={googleConnected}
-        onTaskUpdate={onTaskUpdate}
+        onClose={() => setPioneerOpen(false)}
       />
-    </article>
+    </>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function TaskAttributePills({ task }: { task: Task }) {
+  const attributes = getTaskAttributes(task);
+
+  if (attributes.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="flex items-baseline justify-between gap-3 border-t border-zinc-100 pt-2 first:border-0 first:pt-0">
-      <dt className="text-zinc-400">{label}</dt>
-      <dd className="text-right font-medium text-zinc-700">{value}</dd>
-    </div>
+    <ul className="flex flex-wrap gap-1.5">
+      {attributes.map((attribute) => (
+        <li key={attribute.key}>
+          <span
+            title={`${attribute.label}: ${attribute.value}`}
+            className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[11px] text-zinc-700"
+          >
+            <span className={`shrink-0 ${attribute.tone}`}>{attribute.icon}</span>
+            <span className="truncate font-medium">{attribute.value}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
   );
+}
+
+type TaskAttribute = {
+  key: string;
+  label: string;
+  value: string;
+  icon: ReactNode;
+  tone: string;
+};
+
+const ATTRIBUTE_ICON = { size: 12, strokeWidth: 1.75, "aria-hidden": true as const };
+
+const ATTRIBUTE_META: Record<
+  string,
+  { icon: ReactNode; tone: string }
+> = {
+  assignee: { icon: <User {...ATTRIBUTE_ICON} />, tone: "text-sky-600" },
+  location: { icon: <MapPin {...ATTRIBUTE_ICON} />, tone: "text-rose-600" },
+  deadline: { icon: <Calendar {...ATTRIBUTE_ICON} />, tone: "text-amber-600" },
+  problem: { icon: <AlertTriangle {...ATTRIBUTE_ICON} />, tone: "text-orange-600" },
+  itemToBuy: { icon: <ShoppingCart {...ATTRIBUTE_ICON} />, tone: "text-emerald-600" },
+  equipment: { icon: <Wrench {...ATTRIBUTE_ICON} />, tone: "text-violet-600" },
+};
+
+function getTaskAttributes(task: Task): TaskAttribute[] {
+  return getTaskDisplayAttributes(task).flatMap((attribute) => {
+    const meta = ATTRIBUTE_META[attribute.key];
+    if (!meta) return [];
+
+    return [
+      {
+        key: attribute.key,
+        label: attribute.label,
+        value: attribute.value,
+        icon: meta.icon,
+        tone: meta.tone,
+      },
+    ];
+  });
 }

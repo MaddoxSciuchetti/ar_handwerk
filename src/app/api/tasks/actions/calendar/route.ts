@@ -35,8 +35,9 @@ export async function POST(request: Request) {
       type: "calendar" as const,
       calendarEventId: result.eventId,
       calendarLink: result.htmlLink,
-      start: result.start,
-      end: result.end,
+      calendarAccount: result.calendarAccount,
+      calendarStart: result.start,
+      calendarEnd: result.end,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

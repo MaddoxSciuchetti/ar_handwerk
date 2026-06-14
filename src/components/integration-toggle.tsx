@@ -1,5 +1,7 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
 type IntegrationToggleProps = {
   checked: boolean;
   disabled?: boolean;
@@ -13,6 +15,10 @@ export function IntegrationToggle({
   onChange,
   label,
 }: IntegrationToggleProps) {
+  const trackStyle: CSSProperties = {
+    backgroundColor: checked ? "#18181b" : "#e4e4e7",
+  };
+
   return (
     <button
       type="button"
@@ -21,13 +27,15 @@ export function IntegrationToggle({
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`focus-ring relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${
+      style={trackStyle}
+      className={`integration-toggle focus-ring relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-0 p-0.5 transition-[background-color] duration-200 ${
         disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
-      } ${checked ? "bg-emerald-500" : "bg-zinc-200"}`}
+      }`}
     >
       <span
-        className={`absolute top-[2px] left-[2px] h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-          checked ? "translate-x-4" : "translate-x-0"
+        aria-hidden
+        className={`block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${
+          checked ? "translate-x-5" : "translate-x-0"
         }`}
       />
     </button>

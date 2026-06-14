@@ -13,6 +13,8 @@
  * @see https://docs.pioneer.ai/api-reference/inference/openai-compatible
  */
 
+import { prepareTranscriptForPioneer } from "@/lib/task-normalize";
+
 const PIONEER_API_URL =
   process.env.PIONEER_API_URL ?? "https://api.pioneer.ai/v1/chat/completions";
 
@@ -90,6 +92,8 @@ export async function extractServiceTasks(
     );
   }
 
+  const cleanedTranscript = prepareTranscriptForPioneer(transcript);
+
   const response = await fetch(PIONEER_API_URL, {
     method: "POST",
     headers: {
@@ -98,7 +102,7 @@ export async function extractServiceTasks(
     },
     body: JSON.stringify({
       model: PIONEER_MODEL_ID,
-      messages: [{ role: "user", content: transcript }],
+      messages: [{ role: "user", content: cleanedTranscript }],
       schema: PIONEER_SCHEMA,
       threshold: 0.55,
     }),

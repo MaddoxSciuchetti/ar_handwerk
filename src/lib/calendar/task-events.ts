@@ -1,10 +1,12 @@
 import type { Task } from "@/lib/tasks";
+import { resolveGoogleCalendarEventLink } from "@/lib/calendar/google-links";
 
 export type TaskCalendarEvent = {
   taskId: string;
   taskTitle: string;
   eventId?: string;
   htmlLink?: string | null;
+  dayLink?: string | null;
   summary: string;
   start: string;
   end: string;
@@ -13,7 +15,10 @@ export type TaskCalendarEvent = {
 };
 
 /** Collect Google Calendar events created from accepted task actions. */
-export function getCalendarEventsFromTasks(tasks: Task[]): TaskCalendarEvent[] {
+export function getCalendarEventsFromTasks(
+  tasks: Task[],
+  googleEmail?: string | null,
+): TaskCalendarEvent[] {
   return tasks
     .flatMap((task) => {
       const integrations = task.integrations;
@@ -29,12 +34,21 @@ export function getCalendarEventsFromTasks(tasks: Task[]): TaskCalendarEvent[] {
 
       if (!start || !end) return [];
 
+      const calendarEmail = integrations?.calendarAccount ?? googleEmail ?? null;
+      const htmlLink = resolveGoogleCalendarEventLink({
+        eventId: integrations?.calendarEventId,
+        storedLink: integrations?.calendarLink,
+        calendarEmail,
+        start,
+      });
+
       return [
         {
           taskId: task.id,
           taskTitle: task.title,
           eventId: integrations?.calendarEventId,
-          htmlLink: integrations?.calendarLink,
+          htmlLink,
+          dayLink: calendarEmail ? resolveGoogleCalendarEventLink({ calendarEmail, start }) : null,
           summary: integrations?.calendarSummary ?? draft?.summary ?? task.title,
           start,
           end,
