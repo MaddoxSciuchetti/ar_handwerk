@@ -15,12 +15,6 @@ type TasksViewProps = {
 export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate, onTaskDelete }: TasksViewProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-
   useEffect(() => {
     if (tasks.length === 0) {
       setSelectedTaskId(null);
@@ -40,8 +34,6 @@ export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate, onTa
 
   return (
     <div className="flex min-h-[calc(100vh-3rem)] flex-col gap-3">
-      <h1 className="page-title-hero shrink-0">{today}</h1>
-
       {allClear && tasks.length === 0 ? (
         <div className="flex flex-1 items-center justify-center py-6">
           <div className="all-clear-card flex w-full max-w-2xl flex-col items-center justify-center gap-3 px-6 py-10 text-center">
@@ -78,7 +70,6 @@ export function TasksView({ tasks, allClear, googleConnected, onTaskUpdate, onTa
 
             {selectedTask ? (
               <TaskWidget
-                index={(tasks.findIndex((task) => task.id === selectedTaskId) ?? 0) + 1}
                 task={selectedTask}
                 googleConnected={googleConnected}
                 keyboardEnabled

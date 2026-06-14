@@ -443,3 +443,9 @@ body {
     0 4px 16px rgba(16, 185, 129, 0.06);
 }
 
+.integration-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: none;
+}
+

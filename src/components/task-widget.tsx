@@ -55,7 +55,6 @@ export function TaskPill({ index, task, selected, onSelect }: TaskPillProps) {
 }
 
 type TaskWidgetProps = {
-  index: number;
   task: Task;
   googleConnected?: boolean;
   keyboardEnabled?: boolean;
@@ -64,7 +63,6 @@ type TaskWidgetProps = {
 };
 
 export function TaskWidget({
-  index,
   task,
   googleConnected,
   keyboardEnabled,
@@ -90,10 +88,7 @@ export function TaskWidget({
         <div className="flex shrink-0 flex-col gap-3 border-b border-black/[0.06] px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                Task {index}
-              </p>
-              <h2 className="mt-1 text-[15px] font-semibold leading-snug text-zinc-900">{task.title}</h2>
+              <h2 className="text-[15px] font-semibold leading-snug text-zinc-900">{task.title}</h2>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <button

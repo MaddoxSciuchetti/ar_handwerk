@@ -124,6 +124,7 @@ function sameEntity(a?: string, b?: string): boolean {
 
 /** Deduplicated attributes for UI pills — one purchase item, includes problem. */
 export function getTaskDisplayAttributes(task: {
+  title?: string;
   assignee?: string;
   location?: string;
   deadline?: string;
@@ -134,6 +135,7 @@ export function getTaskDisplayAttributes(task: {
 }): TaskDisplayAttribute[] {
   const attributes: TaskDisplayAttribute[] = [];
   const seen = new Set<string>();
+  const titleKey = normalizeEntityText(task.title)?.toLowerCase();
 
   const add = (key: string, label: string, value?: string) => {
     const normalized = normalizeEntityText(value);
@@ -141,6 +143,7 @@ export function getTaskDisplayAttributes(task: {
 
     const dedupeKey = normalized.toLowerCase();
     if (seen.has(dedupeKey)) return;
+    if (titleKey && dedupeKey === titleKey) return;
 
     seen.add(dedupeKey);
     attributes.push({ key, label, value: normalized });

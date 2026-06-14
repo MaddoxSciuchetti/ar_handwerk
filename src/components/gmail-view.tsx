@@ -199,7 +199,7 @@ export function GmailView({ googleConnected }: GmailViewProps) {
   if (!googleConnected) {
     return (
       <CenteredPageContent>
-        <h1 className="page-title">Mail</h1>
+        <h1 className="page-title-hero">Mail</h1>
         <div className="widget-card flex h-[28rem] flex-col items-start justify-start gap-2">
           <p className="text-[12px] font-medium text-zinc-700">Connect Google to use Mail</p>
           <p className="body-sm text-zinc-500">
@@ -221,10 +221,7 @@ export function GmailView({ googleConnected }: GmailViewProps) {
     <div className="flex h-[calc(100vh-3rem)] flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="page-title">Mail</h1>
-          <p className="page-desc">
-            Emails you send from task actions appear in Sent.
-          </p>
+          <h1 className="page-title-hero">Mail</h1>
         </div>
         <button
           type="button"
@@ -239,7 +236,7 @@ export function GmailView({ googleConnected }: GmailViewProps) {
 
       {error ? <p className="callout callout-error">{error}</p> : null}
 
-      <div className="widget-card flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-32 shrink-0 flex-col border-r border-zinc-100 p-1">
           {MAILBOXES.map((item) => (
             <button

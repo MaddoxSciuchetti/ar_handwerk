@@ -45,6 +45,20 @@ function formatDuration(seconds: number | null): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+function MetaDeviceHero({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`mx-auto overflow-hidden rounded-2xl bg-white ${className}`.trim()}
+    >
+      <img
+        src="/meta.png"
+        alt="Meta Ray Ban smart glasses"
+        className="h-full w-full object-contain"
+      />
+    </div>
+  );
+}
+
 export function DeviceView({
   onAnalysisComplete,
 }: {
@@ -395,14 +409,11 @@ export function DeviceView({
       <div className="flex min-h-[calc(100vh-3rem)] flex-col">
         <div className="shrink-0">
           <h1 className="page-title">Device</h1>
-          <p className="page-desc">Connect smart glasses to sync field videos.</p>
         </div>
 
         <div className="flex flex-1 items-center justify-center px-2 py-6">
           <div className="widget-card w-full max-w-md p-6 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-600">
-              <Glasses size={28} strokeWidth={1.75} aria-hidden />
-            </div>
+            <MetaDeviceHero className="mb-4 h-40 w-full max-w-[280px]" />
             <h2 className="section-title">{supportedDevice.label}</h2>
             <p className="body-sm mt-1 text-zinc-500">{supportedDevice.description}</p>
             <button
@@ -424,11 +435,11 @@ export function DeviceView({
       <div className="flex min-h-[calc(100vh-3rem)] flex-col">
         <div className="shrink-0">
           <h1 className="page-title">Connect {supportedDevice.label}</h1>
-          <p className="page-desc">Enter your device details to finish setup.</p>
         </div>
 
         <div className="flex flex-1 items-center justify-center px-2 py-6">
           <div className="widget-card w-full max-w-md p-5">
+            <MetaDeviceHero className="mb-5 h-36 w-full" />
             <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] font-medium text-zinc-500">Device name</span>
@@ -500,14 +511,20 @@ export function DeviceView({
 
   return (
     <div className="flex min-h-[calc(100vh-3rem)] flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="page-title">{device?.deviceName ?? "Device"}</h1>
-          <p className="page-desc">
-            {supportedDevice.label} · {device?.serialNumber}
+      <section className="widget-card flex flex-wrap items-center gap-4 p-4">
+        <MetaDeviceHero className="h-20 w-28 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+            <Glasses size={13} strokeWidth={1.75} aria-hidden />
+            Connected glasses
+          </p>
+          <h1 className="page-title mt-1">{device?.deviceName ?? "Device"}</h1>
+          <p className="body-sm mt-0.5 text-zinc-500">
+            {supportedDevice.label}
+            {device?.serialNumber ? ` · ${device.serialNumber}` : null}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             Connected
@@ -529,14 +546,11 @@ export function DeviceView({
             Disconnect
           </button>
         </div>
-      </div>
+      </section>
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="section-title">Synced videos</h2>
-          <p className="section-desc">
-            Select videos from your glasses, then upload them for task scanning.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button

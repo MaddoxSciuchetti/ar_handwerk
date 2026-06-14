@@ -117,13 +117,7 @@ export function CalendarView({ tasks, googleConnected, googleEmail }: CalendarVi
     <div className="flex h-[calc(100vh-3rem)] flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="page-title">Calendar</h1>
-          <p className="page-desc">
-            Events you accepted from tasks appear here.{" "}
-            {googleConnected
-              ? "They are also synced to your Google Calendar."
-              : "Connect Google in Settings to create live calendar events."}
-          </p>
+          <h1 className="page-title-hero">Calendar</h1>
         </div>
         <button type="button" onClick={goToToday} className="btn-secondary focus-ring">
           Today

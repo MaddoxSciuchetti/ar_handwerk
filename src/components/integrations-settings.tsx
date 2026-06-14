@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Info, Plus } from "lucide-react";
 import type { GoogleConnectionStatus } from "@/lib/integrations/types";
 import {
   CONNECTED_STORAGE_KEY,
@@ -353,8 +354,10 @@ export function IntegrationsSettings({
     <CenteredPageContent>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="page-title">{title}</h1>
-          <p className="page-desc">{description}</p>
+          <div className="flex items-center gap-1.5">
+            <h1 className="page-title">{title}</h1>
+            <InfoTooltip label={`About ${title}`} text={description} />
+          </div>
         </div>
         <div className="shrink-0">{addControl}</div>
       </div>
@@ -545,12 +548,12 @@ function IntegrationRow({
       <div className="flex items-start gap-2">
         <IntegrationIcon integration={integration} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[12px] font-medium text-zinc-900">{integration.name}</p>
-              <p className="mt-0.5 body-sm text-zinc-500">
-                {integration.description}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[12px] font-medium text-zinc-900">{integration.name}</p>
+                <InfoTooltip label={`About ${integration.name}`} text={integration.description} />
+              </div>
             </div>
             <IntegrationToggle
               checked={enabled && connected}
@@ -615,6 +618,81 @@ function IntegrationRow({
         </div>
       </div>
     </div>
+  );
+}
+
+function InfoTooltip({ label, text }: { label: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const updatePosition = useCallback(() => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    setPosition({
+      top: rect.bottom + 8,
+      left: rect.left + rect.width / 2,
+    });
+  }, []);
+
+  const show = useCallback(() => {
+    updatePosition();
+    setOpen(true);
+  }, [updatePosition]);
+
+  const hide = useCallback(() => {
+    setOpen(false);
+    setPosition(null);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleScroll = () => hide();
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", updatePosition);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [hide, open, updatePosition]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 focus-ring"
+        aria-label={label}
+        title={text}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+      >
+        <Info size={12} strokeWidth={2} aria-hidden />
+      </button>
+      {open && position
+        ? createPortal(
+            <span
+              role="tooltip"
+              style={{
+                position: "fixed",
+                top: position.top,
+                left: position.left,
+                transform: "translateX(-50%)",
+                zIndex: 9999,
+              }}
+              className="pointer-events-none w-52 rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-[11px] leading-relaxed text-zinc-600 shadow-md"
+            >
+              {text}
+            </span>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 

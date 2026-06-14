@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import { ActionCardContent } from "@/components/action-cards/action-card-content";
-import { SwipeableCard } from "@/components/swipeable-card";
+import { SwipeableCard, type SwipeableCardHandle } from "@/components/swipeable-card";
 import type { ProposedAction } from "@/lib/actions/types";
 import type { TaskActionResult } from "@/lib/integrations/types";
 import type { Task } from "@/lib/tasks";
@@ -60,6 +60,7 @@ export function ActionFlow({
   const [calendarDraft, setCalendarDraft] = useState(
     () => task.proposedActions?.find((a) => a.type === "calendar")?.calendarDraft,
   );
+  const swipeRef = useRef<SwipeableCardHandle>(null);
 
   const actions = task.proposedActions ?? [];
   const step = task.actionFlowStep ?? 0;
@@ -214,13 +215,34 @@ export function ActionFlow({
   const isFocus = variant === "focus";
   const canSwipe = isFocus && !loading;
 
+  const runFocusDecision = useCallback(
+    (direction: "left" | "right", action: () => void) => {
+      if (!isFocus) {
+        action();
+        return;
+      }
+
+      if (swipeRef.current?.isAnimating()) return;
+
+      swipeRef.current?.animateOut(direction, action);
+    },
+    [isFocus],
+  );
+
+  const triggerReject = useCallback(() => {
+    if (!current || loading) return;
+    runFocusDecision("left", () => reject());
+  }, [current, loading, reject, runFocusDecision]);
+
+  const triggerAccept = useCallback(() => {
+    if (!current || acceptDisabled) return;
+    runFocusDecision("right", () => void accept());
+  }, [accept, acceptDisabled, current, runFocusDecision]);
+
   const actionBody = (
     <>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <p className="mb-1 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-          {step + 1} of {actions.length}
-        </p>
-        <h4 className="mb-2 shrink-0 text-[14px] font-semibold leading-snug text-zinc-900">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-1 pt-1">
+        <h4 className="mb-2 shrink-0 text-[14px] font-semibold leading-normal text-zinc-900">
           {current?.title}
         </h4>
         {current?.reasoning ? (
@@ -244,23 +266,23 @@ export function ActionFlow({
 
       <div
         className={`mt-3 shrink-0 ${
-          isFocus ? "flex items-center justify-center gap-3 pt-1" : "grid grid-cols-3 gap-2"
+          isFocus ? "flex items-center justify-center gap-2 pt-1" : "grid grid-cols-3 gap-2"
         }`}
       >
         <button
           type="button"
-          onClick={reject}
+          onClick={isFocus ? triggerReject : reject}
           disabled={loading}
           className={
             isFocus
-              ? "flex h-14 w-14 items-center justify-center rounded-full border-2 border-red-700 bg-white text-red-800 shadow-sm transition-colors hover:border-red-800 hover:bg-red-100 disabled:opacity-50"
+              ? "flex h-9 w-9 items-center justify-center rounded-full border border-red-300 bg-white text-red-700 shadow-sm transition-colors hover:border-red-400 hover:bg-red-50 disabled:opacity-50"
               : "flex items-center justify-center gap-2 rounded-full bg-red-700 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-red-800 disabled:opacity-50"
           }
           title="Reject"
           aria-label="Reject"
         >
           {isFocus ? (
-            <span className="text-xl leading-none" aria-hidden>
+            <span className="text-sm leading-none" aria-hidden>
               ✕
             </span>
           ) : (
@@ -279,7 +301,7 @@ export function ActionFlow({
           title="Skip this action and move to the next one"
           className={
             isFocus
-              ? "flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200 bg-white text-[11px] font-semibold text-zinc-500 shadow-sm transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
+              ? "flex h-8 min-w-8 items-center justify-center rounded-full border border-zinc-200 bg-white px-2 text-[10px] font-medium text-zinc-500 shadow-sm transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
               : "focus-ring rounded-full border border-zinc-200 bg-white px-3 py-2.5 text-[11px] font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50"
           }
           aria-label="Skip"
@@ -288,11 +310,11 @@ export function ActionFlow({
         </button>
         <button
           type="button"
-          onClick={() => void accept()}
+          onClick={() => (isFocus ? triggerAccept() : void accept())}
           disabled={acceptDisabled}
           className={
             isFocus
-              ? "flex h-14 w-14 items-center justify-center rounded-full border-2 border-emerald-700 bg-white text-emerald-800 shadow-sm transition-colors hover:border-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+              ? "flex h-9 w-9 items-center justify-center rounded-full border border-emerald-300 bg-white text-emerald-700 shadow-sm transition-colors hover:border-emerald-400 hover:bg-emerald-50 disabled:opacity-50"
               : "flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-800 disabled:opacity-50"
           }
           title={acceptLabel}
@@ -301,7 +323,7 @@ export function ActionFlow({
           {loading ? (
             <span className="text-[10px] font-semibold">…</span>
           ) : isFocus ? (
-            <span className="text-xl leading-none" aria-hidden>
+            <span className="text-sm leading-none" aria-hidden>
               ✓
             </span>
           ) : (
@@ -332,20 +354,22 @@ export function ActionFlow({
       if (event.key === "Enter") {
         if (acceptDisabled) return;
         event.preventDefault();
-        void accept();
+        if (isFocus) triggerAccept();
+        else void accept();
         return;
       }
 
       if (event.key === "q" || event.key === "Q") {
         if (loading) return;
         event.preventDefault();
-        reject();
+        if (isFocus) triggerReject();
+        else reject();
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [accept, acceptDisabled, current, done, keyboardEnabled, loading, reject, skip]);
+  }, [accept, acceptDisabled, current, done, isFocus, keyboardEnabled, loading, reject, skip, triggerAccept, triggerReject]);
 
   if (actions.length === 0) {
     return (
@@ -378,8 +402,9 @@ export function ActionFlow({
 
   if (isFocus) {
     return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-10">
+      <div className="flex h-full min-h-0 flex-col px-5 pb-5 pt-11">
         <SwipeableCard
+          ref={swipeRef}
           resetKey={current.id}
           canSwipeLeft={canSwipe}
           canSwipeRight={canSwipe && !acceptDisabled}
